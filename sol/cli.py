@@ -1,5 +1,5 @@
-from . import task
+from . import tasklist
 
 
 def main():
-    task.main()
+    tasklist.main()

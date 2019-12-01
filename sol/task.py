@@ -1,27 +1,13 @@
-import re
-from abc import ABC, abstractmethod, abstractclassmethod
-from enum import Enum
 import logging
+import re
+from abc import ABC, abstractclassmethod, abstractmethod
+from enum import Enum
 
 LOG = logging.getLogger(__name__)
 
 
-class BaseTask(ABC):
-    @abstractmethod
-    def __eq__(self, other: "BaseTask") -> bool:
-        pass
-
-    @abstractmethod
-    def __str__(self) -> str:
-        pass
-
-    @abstractclassmethod
-    def from_string(cls, string: str) -> "BaseTask":
-        pass
-
-
-class Task(BaseTask):
-    STATE: Enum = Enum("STATE", "NOTDONE IDEA INPROGRESS DONE")
+class _BaseTask(ABC):
+    STATE: Enum = Enum("STATE", "IDEA NOTDONE INPROGRESS DONE")
 
     TICK_TO_STATE: dict = {
         " ": STATE.NOTDONE,
@@ -38,27 +24,17 @@ class Task(BaseTask):
         if self.state not in Task.STATE:
             raise TypeError(f'"{self.state}" is not a valid Task state.')
 
-    def __eq__(self, other: "Task") -> bool:
-        return bool(self.msg == other.msg)
+    @abstractmethod
+    def __eq__(self, other: "_BaseTask") -> bool:
+        pass
 
+    @abstractmethod
     def __str__(self) -> str:
-        return f"[{self.state_to_tick(self.state)}] {self.msg}"
+        pass
 
-    @classmethod
-    def from_string(cls, string: str) -> "Task":
-        string = cls.filter_string(string)
-
-        expr = r"\[([ ?/xX])\]\s+(.*)"
-
-        match = re.match(expr, string)
-        if not match:
-            raise ValueError(f'Unable to read state from "{string}"!')
-
-        msg = cls.filter_string(match.group(2))
-
-        state = cls.tick_to_state(match.group(1))
-
-        return cls(msg, state)
+    @abstractclassmethod
+    def from_string(cls, string: str) -> "_BaseTask":
+        pass
 
     @staticmethod
     def filter_string(string: str) -> str:
@@ -86,18 +62,49 @@ class Task(BaseTask):
         return tick
 
 
-class CodeTask(Task):
-    TYPE = Enum("TYPES", "FIXME TODO? TODO IDEA")
+class Task(_BaseTask):
+    def __eq__(self, other: "Task") -> bool:
+        return bool(self.msg == other.msg)
 
-    def __init__(self, msg, ttype, line_no, state=False) -> None:
-        if ttype not in CodeTask.TYPE:
+    def __str__(self) -> str:
+        return f"[{self.state_to_tick(self.state)}] {self.msg}"
+
+    @classmethod
+    def from_string(cls, string: str) -> "Task":
+        string = cls.filter_string(string)
+
+        expr = r"\[([ ?/xX])\]\s+(.*)"
+
+        match = re.match(expr, string)
+        if not match:
+            raise ValueError(f'Unable to read state from "{string}"!')
+
+        msg = cls.filter_string(match.group(2))
+
+        state = cls.tick_to_state(match.group(1))
+
+        return cls(msg, state)
+
+
+class CodeTask(_BaseTask):
+    TYPE = Enum("TYPES", "IDEA TODO? FIXME TODO")
+
+    def __init__(self, msg, ttype, line_no, state=None) -> None:
+        if ttype not in self.TYPE:
             raise TypeError("Invalid Task type!")
 
-        if ttype == CodeTask.TYPE.IDEA:
+        if ttype == self.TYPE.IDEA:
             LOG.info(
                 'Warning: for compatibility, use "TODO?" instead of "IDEA"'
             )
-            ttype = getattr(CodeTask.TYPE, "TODO?")
+            ttype = getattr(self.TYPE, "TODO?")
+
+        condition = (ttype == getattr(self.TYPE, "TODO?")) != (
+            state == self.STATE.IDEA
+        )
+
+        if condition:
+            ttype = self.TYPE.TODO
 
         super().__init__(msg, state)
 
@@ -105,10 +112,7 @@ class CodeTask(Task):
         self.line_no = line_no
 
     def __eq__(self, other: "CodeTask") -> bool:
-        return any(
-            super().__eq__(other),
-            self.ttype == other.ttype
-        )
+        return all((super().__eq__(other), self.ttype == other.ttype))
 
     def __str__(self) -> str:
         # TODO Get digits from settings
@@ -128,8 +132,7 @@ class CodeTask(Task):
         match = re.match(expr, task.msg)
         if not match:
             raise ValueError(
-                f'Unable to read line number and type '
-                f' from "{task.msg}"!'
+                f"Unable to read line number and type " f' from "{task.msg}"!'
             )
 
         line_no = int(match.group(1))
@@ -144,7 +147,7 @@ class CodeTask(Task):
         string = string.replace("//", "")
         string = string.replace("/*", "")
         string = string.replace("*/", "")
-        string = (cls.filter_string(string))
+        string = cls.filter_string(string)
 
         return string
 
@@ -152,12 +155,7 @@ class CodeTask(Task):
     def from_source_string(cls, string: str, line_no: int) -> "CodeTask":
         string = cls.filter_source_string(string)
 
+        ttype, msg = string.split(maxsplit=1)
+        ttype = cls.TYPE[ttype]
 
-def main():
-    string = "[x] This is a task."
-    tsk = Task.from_string(string)
-    print(tsk)
-
-    cstring = "[/] 123:FIXME This is a code task"
-    ctsk = CodeTask.from_string(cstring)
-    print(ctsk)
+        return CodeTask(msg, ttype, line_no)
