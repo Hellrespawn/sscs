@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 
 from .task import CodeTask, Task, _BaseTask
+import logging
+LOG = logging.getLogger(__name__)
 
 
 class BaseTaskList(ABC):
