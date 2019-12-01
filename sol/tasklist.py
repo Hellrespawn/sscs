@@ -1,30 +1,31 @@
+import logging
 from abc import ABC, abstractmethod
 
-from .task import CodeTask, Task, _BaseTask
-import logging
+from .task import CodeTask, Task
+
 LOG = logging.getLogger(__name__)
 
 
 class BaseTaskList(ABC):
-    def __init__(self, tclass: _BaseTask) -> None:
-        self.tclass = tclass
+    def __init__(self, task_class) -> None:
+        self.task_class = task_class
 
-        self.tasklist = []
+        self.tasklist: list = []
 
     def __str__(self) -> str:
         return "\n".join([str(task) for task in self.tasklist])
 
-    def validate(self, task: Task) -> bool:
-        if not isinstance(task, self.tclass):
+    def validate(self, task) -> bool:
+        if not isinstance(task, self.task_class):
             raise TypeError(
                 f"Invalid class {type(task).__name__}, expected "
-                f"{self.tclass.__name__}!"
+                f"{self.task_class.__name__}!"
             )
 
         return True
 
     @abstractmethod
-    def append(self, task: _BaseTask) -> None:
+    def append(self, task) -> None:
         pass
 
 
@@ -55,6 +56,7 @@ class CodeTaskList(BaseTaskList):
                 index = self.tasklist.index(task)
                 self.tasklist[index].line_no = task.line_no
                 self.tasklist[index].state = task.state
+                self.tasklist[index].timestamp = task.timestamp
 
             except ValueError:
                 self.tasklist.append(task)

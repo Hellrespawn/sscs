@@ -1,6 +1,6 @@
 import unittest
 
-from sol.task import _BaseTask, Task, CodeTask
+from sol.task import CodeTask, Task, _BaseTask
 
 
 class TestTask(unittest.TestCase):
@@ -10,6 +10,5 @@ class TestTask(unittest.TestCase):
 
     def test_from_string(self):
         self.assertEqual(
-            Task("This is a test"),
-            Task.from_string("[ ] This is a test")
+            Task("This is a test"), Task.from_string("[ ] This is a test")
         )

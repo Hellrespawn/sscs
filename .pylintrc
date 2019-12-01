@@ -1,5 +1,6 @@
 [MASTER]
-disable=fixme,
+disable=bad-continuation,
+        fixme,
         logging-format-interpolation,
         missing-module-docstring,
         missing-class-docstring,

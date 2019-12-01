@@ -1,9 +1,9 @@
+import logging
 import textwrap
 from datetime import datetime
-import logging
 
-from .task import Task, CodeTask
-from .tasklist import TaskList, CodeTaskList
+from .task import CodeTask, Task
+from .tasklist import CodeTaskList, TaskList
 
 LOG = logging.getLogger(__name__)
 
@@ -19,10 +19,9 @@ class TaskDict:
         string = ""
 
         for name, tasklist in self.taskdict.items():
-            string += name + ":\n" + textwrap.indent(
-                str(tasklist),
-                indent
-            ) + "\n"
+            string += (
+                name + ":\n" + textwrap.indent(str(tasklist), indent) + "\n"
+            )
 
         return string.rstrip()
 

@@ -28,3 +28,4 @@ pip-log.txt
 # Template
 Pipfile.lock
 .vscode/settings.json
+.mypy_cache
