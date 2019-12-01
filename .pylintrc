@@ -1,0 +1,6 @@
+[MASTER]
+disable=fixme,
+        logging-format-interpolation,
+        missing-module-docstring,
+        missing-class-docstring,
+        missing-function-docstring,

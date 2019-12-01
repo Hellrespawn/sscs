@@ -1,0 +1,97 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        // {
+        //     "label": "Generate To-Do",
+        //     "type": "shell",
+        //     "command": "python3 dev/todo.py",
+        //     "problemMatcher": [],
+        //     "presentation": {
+        //         "focus": true
+        //     }
+        // },
+        {
+            "label": "Format source code",
+            "dependsOrder": "sequence",
+            "dependsOn": ["clean __pycache__", "isort", "black"],
+            "problemMatcher": [],
+            "presentation": {
+                "focus": true
+            }
+        },
+        {
+            "label": "Comprehensive linting",
+            "dependsOrder": "sequence",
+            "dependsOn": ["flake8", "bandit", "pylint"],
+            "problemMatcher": [],
+            "presentation": {
+                "focus": true
+            }
+        },
+        {
+            "label": "black",
+            "type": "shell",
+            "command": "pipenv run python3 -m black -l 78 .",
+            "problemMatcher": [],
+            "presentation": {
+                "focus": true
+            }
+        },
+        {
+            "label": "isort",
+            "type": "shell",
+            "command": "pipenv run python3 -m isort -rc .",
+            "problemMatcher": [],
+            "presentation": {
+                "focus": true
+            }
+        },
+        {
+            "label": "clean __pycache__",
+            "type": "shell",
+            "command": "find . -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete",
+            "problemMatcher": [],
+            "presentation": {
+                "focus": true
+            }
+        },
+        {
+            "label": "flake8",
+            "type": "shell",
+            "command": "pipenv run python3 -m flake8 . > doc/flake8.txt",
+            "problemMatcher": [],
+            "presentation": {
+                "focus": true
+            }
+        },
+        {
+            "label": "pylint",
+            "type": "shell",
+            "command": "pipenv run python3 -m pylint tag_to_filename > doc/pylint.txt",
+            "problemMatcher": [],
+            "presentation": {
+                "focus": true
+            }
+        },
+        {
+            "label": "bandit",
+            "type": "shell",
+            "command": "pipenv run python3 -m bandit -r . > doc/bandit.txt",
+            "problemMatcher": [],
+            "presentation": {
+                "focus": true
+            }
+        },
+        {
+            "label": "blank",
+            "type": "shell",
+            "command": "",
+            "problemMatcher": [],
+            "presentation": {
+                "focus": true
+            }
+        },
+    ]
+}

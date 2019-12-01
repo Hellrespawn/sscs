@@ -1,0 +1,2 @@
+# Always use LF, never CRLF
+text eol=lf

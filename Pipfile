@@ -1,0 +1,17 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[pipenv]
+allow_prereleases = true
+
+[dev-packages]
+flake8 = "*"
+bandit = "*"
+pylint = "*"
+isort  = "*"
+black = "*"
+
+[requires]
+python_version = "3"
