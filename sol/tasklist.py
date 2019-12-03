@@ -1,81 +1,113 @@
 import logging
-from abc import ABC, abstractmethod
+from collections.abc import MutableSequence
+from typing import Any, Iterable
 
-from .task import CodeTask, Task
+from .task import Task
 
 LOG = logging.getLogger(__name__)
 
 
-class BaseTaskList(ABC):
-    def __init__(self, task_class) -> None:
-        self.task_class = task_class
+class TaskList(MutableSequence):  # pylint: disable=too-many-ancestors
+    def __init__(self, iterable=None, *, tasktype=None):
+        self.tasktype = tasktype
 
         self.tasklist: list = []
 
-    def __str__(self) -> str:
-        return "\n".join([str(task) for task in self.tasklist])
+        for item in iterable or []:
+            self.tasklist.append(item)
 
-    def validate(self, task) -> bool:
-        if not isinstance(task, self.task_class):
-            raise TypeError(
-                f"Invalid class {type(task).__name__}, expected "
-                f"{self.task_class.__name__}!"
-            )
+    def __str__(self) -> str:
+        return self.to_string()
+
+    def __repr__(self) -> str:
+        return self.tasklist.__repr__()
+
+    def __eq__(self, other) -> bool:
+        for task in self.tasklist:
+            if task not in other:
+                return False
 
         return True
 
-    @abstractmethod
-    def append(self, task) -> None:
-        pass
+    def __delitem__(self, key: Any):
+        return self.tasklist.__delitem__(key)
+
+    def __getitem__(self, key: Any):
+        return self.tasklist.__getitem__(key)
+
+    def __len__(self):
+        return self.tasklist.__len__()
+
+    def __setitem__(self, key: Any, value: Any):
+        return self.tasklist.__setitem__(key, value)
+
+    def insert(self, index: int, value: Any):
+        raise NotImplementedError
+
+    # pylint: disable=unidiomatic-typecheck
+    def append(self, value: Any):
+        if self.tasktype is None:
+            self.tasktype = type(value)
+
+        elif not type(value) == self.tasktype:
+            raise TypeError("Not allowed to mix classes in TaskList!")
+
+        self.remove_task(value)
+        self.tasklist.append(value)
+    # pylint: enable=unidiomatic-typecheck
+
+    # pylint: disable=arguments-differ
+    def extend(self, iterable: Iterable[Any]):
+        try:
+            task = next(iter(iterable))
+            if self.tasktype is None:
+                self.tasktype = type(task)
+
+            # pylint: disable=unidiomatic-typecheck
+            condition = all(
+                [type(task) == self.tasktype for task in iterable]
+            )
+            # pylint: enable=unidiomatic-typecheck
+
+            if not condition:
+                raise TypeError("Not allowed to mix classes in TaskList!")
+
+            for task in iterable:
+                self.remove_task(task)
+
+            return self.tasklist.extend(iterable)
+
+        except StopIteration:
+            return self.tasklist
+    # pylint: enable=arguments-differ
+
+    def remove_task(self, task: Task):
+        try:
+            self.tasklist.remove(task)
+            return True
+        except ValueError:
+            return False
+
+    def to_string(self):
+        return "\n".join([str(task) for task in self.tasklist])
 
 
-class TaskList(BaseTaskList):
-    def __init__(self) -> None:
-        super().__init__(Task)
+# class CodeTaskList(BaseTaskList):
+#     def __init__(self) -> None:
+#         super().__init__(CodeTask)
 
-    def append(self, task: Task) -> None:
-        if self.validate(task):
-            try:
-                self.tasklist.remove(task)
-            except ValueError:
-                pass
+#     def sort(self):
+#         self.tasklist.sort(key=lambda t: (t.ttype.value, t.line_no))
 
-            self.tasklist.append(task)
+#     def append(self, task: CodeTask) -> None:
+#         if self.validate(task):
+#             try:
+#                 index = self.tasklist.index(task)
+#                 self.tasklist[index].line_no = task.line_no
+#                 self.tasklist[index].state = task.state
+#                 self.tasklist[index].timestamp = task.timestamp
 
+#             except ValueError:
+#                 self.tasklist.append(task)
 
-class CodeTaskList(BaseTaskList):
-    def __init__(self) -> None:
-        super().__init__(CodeTask)
-
-    def sort(self):
-        self.tasklist.sort(key=lambda t: (t.ttype.value, t.line_no))
-
-    def append(self, task: CodeTask) -> None:
-        if self.validate(task):
-            try:
-                index = self.tasklist.index(task)
-                self.tasklist[index].line_no = task.line_no
-                self.tasklist[index].state = task.state
-                self.tasklist[index].timestamp = task.timestamp
-
-            except ValueError:
-                self.tasklist.append(task)
-
-            self.sort()
-
-
-def main():
-    # tlist = TaskList()
-    # task = Task.from_string("[ ] This is a task.")
-    # tlist.append(task)
-
-    # print(str(tlist))
-
-    ctlist = CodeTaskList()
-    ctlist.append(CodeTask.from_string("[x] 123:TODO This is a code task."))
-    ctlist.append(
-        CodeTask.from_string("[x] 234:FIXME This is another code task.")
-    )
-    ctlist.append(CodeTask.from_string("[?] 156:IDEA This is an idea."))
-
-    print(str(ctlist))
+#             self.sort()

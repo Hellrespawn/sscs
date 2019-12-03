@@ -1,6 +1,5 @@
 import logging
 import re
-from abc import ABC, abstractclassmethod, abstractmethod
 from base64 import b85decode, b85encode
 from datetime import datetime
 from enum import Enum
@@ -9,7 +8,14 @@ from time import time
 LOG = logging.getLogger(__name__)
 
 
-class _BaseTask(ABC):
+class Task:
+    """ Datastructure that holds a task.
+
+    Format:
+        [$timestamp][$state] $message
+        [UFJW-][ ] This is a task
+    """
+
     STATE: Enum = Enum("STATE", "IDEA NOTDONE INPROGRESS DONE")
 
     TICK_TO_STATE: dict = {
@@ -19,9 +25,7 @@ class _BaseTask(ABC):
         "x": STATE.DONE,
     }
 
-    def __init__(
-        self, msg: str, state: STATE = None, timestamp: int = None
-    ) -> None:
+    def __init__(self, msg: str, state: STATE = None) -> None:
         self.msg = Task.filter_string(msg)
 
         self.state = state or Task.STATE.NOTDONE
@@ -29,30 +33,40 @@ class _BaseTask(ABC):
         if self.state not in Task.STATE:
             raise TypeError(f'"{self.state}" is not a valid Task state.')
 
-        self.timestamp = timestamp or int(time())
-
-    @abstractmethod
     def __eq__(self, other):
-        pass
+        return self.msg == other.msg and isinstance(other, type(self))
 
-    @abstractmethod
+    def __lt__(self, other):
+        return (
+            (self.state.value, self.msg) <
+            (other.state.value, other.msg)
+        )
+
     def __str__(self) -> str:
-        pass
+        return self.to_string()
 
-    @abstractclassmethod
-    def from_string(cls, string: str) -> "_BaseTask":
-        pass
+    def __repr__(self):
+        return f"Task(msg={self.msg!r}, state={self.state!r})"
 
-    def encode_timestamp(self) -> str:
-        return b85encode(self.timestamp.to_bytes(4, "big")).decode("utf-8")
+    @classmethod
+    def from_string(cls, string: str) -> "Task":
+        string = cls.filter_string(string)
 
-    @staticmethod
-    def decode_timestamp(encoded: str) -> int:
-        return int.from_bytes(b85decode(encoded), "big")
+        # fmt: off
+        expr = (
+            r"\[(?P<tick>[ ?/xX])\]"   # [$state]
+            r"(?P<msg>.*)"             # $message
+        )
+        # fmt: on
 
-    @staticmethod
-    def parse_timestamp(timestamp: int) -> datetime:
-        return datetime.fromtimestamp(timestamp)
+        match = re.match(expr, string)
+        if not match:
+            raise ValueError(f'Unable to read state from "{string}"!')
+
+        state = cls.tick_to_state(match.group("tick").lower())
+        msg = cls.filter_string(match.group("msg"))
+
+        return cls(msg, state)
 
     @staticmethod
     def filter_string(string: str) -> str:
@@ -79,110 +93,63 @@ class _BaseTask(ABC):
 
         return tick
 
+    def to_string(self) -> str:
+        msg = self.msg.replace('"', r"\"")
 
-class Task(_BaseTask):
-    def __eq__(self, other):
-        return bool(self.msg == other.msg)
-
-    def __str__(self) -> str:
-        enc = self.encode_timestamp()
-        return f"[{enc}][{self.state_to_tick(self.state)}] {self.msg}"
-
-    @classmethod
-    def from_string(cls, string: str) -> "Task":
-        string = cls.filter_string(string)
-
-        expr = r"\[(.+?)\]\[([ ?/xX])\]\s+(.*)"
-
-        match = re.match(expr, string)
-        if not match:
-            raise ValueError(f'Unable to read state from "{string}"!')
-
-        timestamp = cls.decode_timestamp(match.group(1))
-        state = cls.tick_to_state(match.group(2))
-        msg = cls.filter_string(match.group(3))
-
-        return cls(msg, state, timestamp)
-
-
-class CodeTask(_BaseTask):
-    TYPE = Enum("TYPES", "IDEA TODO? FIXME TODO")
-
-    def __init__(
-        self,
-        msg: str,
-        ttype: TYPE,
-        line_no: int,
-        state: _BaseTask.STATE = None,
-        timestamp: int = None,
-    ) -> None:
-        if ttype not in self.TYPE:
-            raise TypeError("Invalid Task type!")
-
-        if ttype == self.TYPE.IDEA:
-            LOG.info(
-                'Warning: for compatibility, use "TODO?" instead of "IDEA"'
-            )
-            ttype = getattr(self.TYPE, "TODO?")
-
-        condition = (ttype == getattr(self.TYPE, "TODO?")) != (
-            state == self.STATE.IDEA
-        )
-
-        if condition:
-            ttype = self.TYPE.TODO
-
-        super().__init__(msg, state, timestamp)
-
-        self.ttype = ttype
-        self.line_no = line_no
-
-    def __eq__(self, other):
-        return all((super().__eq__(other), self.ttype == other.ttype))
-
-    def __str__(self) -> str:
-        enc = self.encode_timestamp()
-        # TODO Get digits from settings
-        digits = 4
-
-        state = self.state_to_tick(self.state)
-        line_no = f"{self.line_no: {digits}d}"
-
-        return f"[{enc}][{state}] {line_no}:{self.ttype.name} {self.msg}"
-
-    @classmethod
-    def from_string(cls, string: str) -> "CodeTask":
-        task = Task.from_string(string)
-
-        expr = r"([0-9]+):(.+?)\s(.*)"
-
-        match = re.match(expr, task.msg)
-        if not match:
-            raise ValueError(
-                f"Unable to read line number and type " f' from "{task.msg}"!'
-            )
-
-        line_no = int(match.group(1))
-        ttype = cls.TYPE[match.group(2)]
-        msg = match.group(3)
-
-        return cls(msg, ttype, line_no, task.state, task.timestamp)
-
-    @classmethod
-    def filter_source_string(cls, string: str) -> str:
-        string = string.replace("#", "")
-        string = string.replace("//", "")
-        string = string.replace("/*", "")
-        string = string.replace("*/", "")
-        string = cls.filter_string(string)
+        string = f'[{self.state_to_tick(self.state)}] "{msg}"'
 
         return string
 
+
+class TimedTask(Task):
+    STRFP_FORMAT = "%Y-%m-%d %H:%M"
+
+    def __init__(
+        self, msg: str, state: Task.STATE = None, timestamp: int = None
+    ) -> None:
+        super().__init__(msg, state)
+
+        self.timestamp = timestamp or int(time())
+
+    def __lt__(self, other):
+        return (
+            (self.state.value, self.timestamp, self.msg) <
+            (other.state.value, other.timestamp, other.msg)
+        )
+
     @classmethod
-    def from_source_string(cls, string: str, line_no: int) -> "CodeTask":
-        string = cls.filter_source_string(string)
+    def from_string(cls, string: str) -> "TimedTask":
+        string = cls.filter_string(string)
 
-        ttype, msg = string.split(maxsplit=1)
-        ttype = cls.TYPE[ttype]  # type: ignore
+        expr = r"\[(?P<timestamp>.+?)\](?P<rest>.*)"
 
-        return CodeTask(msg, ttype, line_no)  # type: ignore
+        match = re.match(expr, string)
+        if not match:
+            raise ValueError(f'Unable to read timestamp from "{string}"!')
+
+        task = super().from_string(match.group("rest"))
+
+        timestamp = cls.decode_timestamp(match.group("timestamp"))
+
+        return cls(task.msg, task.state, timestamp)
+
+    def to_string(self, parse_timestamp=False) -> str:
+        if parse_timestamp:
+            return f"[{self.parse_timestamp()}]" + super().to_string()
+
+        return f"[{self.encode_timestamp()}]" + super().to_string()
+
+    def encode_timestamp(self) -> str:
+        return b85encode(self.timestamp.to_bytes(4, "big")).decode("utf-8")
+
+    @classmethod
+    def decode_timestamp(cls, encoded: str) -> int:
+        if len(encoded) == 5:
+            return int.from_bytes(b85decode(encoded), "big")
+
+        return int(datetime.strptime(encoded, cls.STRFP_FORMAT).timestamp())
+
+    def parse_timestamp(self) -> str:
+        return datetime.fromtimestamp(self.timestamp).strftime(
+            self.STRFP_FORMAT
+        )
