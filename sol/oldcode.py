@@ -12,34 +12,6 @@
 #             self.from_source_file(filename)
 
 
-# def from_existing_tasklist(self):
-#     filename = Path(self.filepath, self.filename)
-
-#     if filename.exists():
-#         with open(filename, "r") as file:
-#             lines = list(file)[1:]
-
-#         lines = [line.strip() for line in lines]
-
-#         indices = [i for i, line in enumerate(lines) if not line]
-
-#         i = 0
-#         sections = []
-
-#         for j in indices:
-#             if j - i > 1:
-#                 sections.append(lines[i:j])
-#             i = j + 1
-
-#         sections.append([l for l in lines[i:] if l])
-
-#         for section in sections:
-#             key = section[0].replace(":", "")
-
-#             for string in section[1:]:
-#                 self.append(key, Task.from_tasklist_string(string))
-
-
 # def from_source_file(self, filename):
 #     if any([func(filename) for func in FILE_BLACKLIST]):
 #         raise ValueError("Tried to read blacklisted file!")
@@ -62,10 +34,6 @@
 #                             f'    {i + 1}: "{line.strip()}"'
 #                         )
 #                     break
-
-
-# def from_todo_file(self):
-#     pass
 
 
 # def to_file(self):

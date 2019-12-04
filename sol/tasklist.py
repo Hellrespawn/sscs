@@ -54,6 +54,7 @@ class TaskList(MutableSequence):  # pylint: disable=too-many-ancestors
 
         self.remove_task(value)
         self.tasklist.append(value)
+
     # pylint: enable=unidiomatic-typecheck
 
     # pylint: disable=arguments-differ
@@ -79,6 +80,7 @@ class TaskList(MutableSequence):  # pylint: disable=too-many-ancestors
 
         except StopIteration:
             return self.tasklist
+
     # pylint: enable=arguments-differ
 
     def remove_task(self, task: Task):

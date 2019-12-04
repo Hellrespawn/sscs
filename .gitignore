@@ -29,3 +29,6 @@ pip-log.txt
 Pipfile.lock
 .vscode/settings.json
 .mypy_cache
+
+# Project
+log/

@@ -8,6 +8,34 @@ from time import time
 LOG = logging.getLogger(__name__)
 
 
+def from_string(string):
+    class_list = (TimedTask, Task)
+
+    previous = None
+
+    for cls in class_list:
+        if previous:
+            assert issubclass(previous, cls)
+
+        try:
+            task = cls.from_string(string)
+            LOG.debug(f"Created task: {task}")
+            return task
+        except ValueError:
+            pass
+
+        previous = cls
+
+    raise FromStringError(string, "Task or subclass of Task!")
+
+
+class FromStringError(ValueError):
+    def __init__(self, string, type_):
+        string = f'Unable to parse "{string}" as {type_}!'
+        LOG.debug(string)
+        super().__init__(string)
+
+
 class Task:
     """ Datastructure that holds a task.
 
@@ -37,10 +65,7 @@ class Task:
         return self.msg == other.msg and isinstance(other, type(self))
 
     def __lt__(self, other):
-        return (
-            (self.state.value, self.msg) <
-            (other.state.value, other.msg)
-        )
+        return (self.state.value, self.msg) < (other.state.value, other.msg)
 
     def __str__(self) -> str:
         return self.to_string()
@@ -54,14 +79,14 @@ class Task:
 
         # fmt: off
         expr = (
-            r"\[(?P<tick>[ ?/xX])\]"   # [$state]
-            r"(?P<msg>.*)"             # $message
+            r"\[(?P<tick>[ ?/xX])\]"  # [$state]
+            r"\s*?(?P<msg>.*)"        # $message
         )
         # fmt: on
 
         match = re.match(expr, string)
         if not match:
-            raise ValueError(f'Unable to read state from "{string}"!')
+            raise FromStringError(string, str(cls))
 
         state = cls.tick_to_state(match.group("tick").lower())
         msg = cls.filter_string(match.group("msg"))
@@ -70,9 +95,19 @@ class Task:
 
     @staticmethod
     def filter_string(string: str) -> str:
+        try:
+            index = string.index("#")
+            string = string[:index]
+        except ValueError:
+            pass
+
         string = string.replace("\n", "")
         string = string.replace("\t", r"%indent%")
         string = string.strip()
+
+        if string.startswith('"') and string.endswith('"'):
+            string = string[1:-1]
+
         return string
 
     @staticmethod
@@ -93,7 +128,7 @@ class Task:
 
         return tick
 
-    def to_string(self) -> str:
+    def to_string(self, _=None) -> str:
         msg = self.msg.replace('"', r"\"")
 
         string = f'[{self.state_to_tick(self.state)}] "{msg}"'
@@ -112,9 +147,10 @@ class TimedTask(Task):
         self.timestamp = timestamp or int(time())
 
     def __lt__(self, other):
-        return (
-            (self.state.value, self.timestamp, self.msg) <
-            (other.state.value, other.timestamp, other.msg)
+        return (self.state.value, self.timestamp, self.msg) < (
+            other.state.value,
+            other.timestamp,
+            other.msg,
         )
 
     @classmethod
@@ -125,7 +161,7 @@ class TimedTask(Task):
 
         match = re.match(expr, string)
         if not match:
-            raise ValueError(f'Unable to read timestamp from "{string}"!')
+            raise FromStringError(string, str(cls))
 
         task = super().from_string(match.group("rest"))
 
@@ -133,7 +169,7 @@ class TimedTask(Task):
 
         return cls(task.msg, task.state, timestamp)
 
-    def to_string(self, parse_timestamp=False) -> str:
+    def to_string(self, parse_timestamp: bool = False) -> str:
         if parse_timestamp:
             return f"[{self.parse_timestamp()}]" + super().to_string()
 
