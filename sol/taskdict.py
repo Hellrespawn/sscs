@@ -10,7 +10,8 @@ LOG = logging.getLogger(__name__)
 
 
 class TaskDict:
-    def __init__(self) -> None:
+    def __init__(self, filepath=None) -> None:
+        self.filepath = filepath
         self.taskdict: dict = {}
 
     def __str__(self) -> str:
@@ -39,13 +40,13 @@ class TaskDict:
             raise exc from None
 
     @classmethod
-    def from_file(cls, filename) -> "TaskDict":
-        filename = Path(filename)
+    def from_file(cls, filepath) -> "TaskDict":
+        filepath = Path(filepath)
 
         try:
-            taskdict = TaskDict()
+            with open(filepath, "r") as file:
+                taskdict = TaskDict()
 
-            with open(filename, "r") as file:
                 category = "@line 1"
 
                 for i, line in enumerate(file):
@@ -64,14 +65,15 @@ class TaskDict:
                             taskdict.append(category, task)
                         except TypeError:
                             # TODO Handle mixed tasklist
-                            continue
+                            category = f"@line {i}"
+                            taskdict.append(category, task)
 
                     except ValueError:
                         if line.endswith(":"):
                             category = line[:-1]
                         else:
                             category = line
-
+            taskdict.filepath = filepath
             return taskdict
 
         except FileNotFoundError as exc:
