@@ -1,11 +1,12 @@
 import argparse
 import logging
 import re
+import sys
 from pathlib import Path
 
 from sol import configure_logger
 
-from . import task as taskstruct
+from .task import task_from_string, Task
 from .taskdict import TaskDict
 
 LOG = logging.getLogger(__name__)
@@ -41,17 +42,17 @@ class CLI:
         # raise FileNotFoundError("No list found!")
 
     def handle_add(self, args):
-        taskstring = " ".join(args.task)
+        taskstring = args.input
 
         print(taskstring)
 
         if re.match(r"\[[ ?/xX]\]", taskstring):
-            task = taskstruct.from_string(taskstring)
+            task = task_from_string(taskstring)
 
         else:
-            task = taskstruct.Task(taskstring)
+            task = Task(taskstring)
 
-        print(f"Adding {task}")
+        self.taskdict.append(args.category, task)
 
     def handle_check(self, task):
         print(f"Checking {task}")
@@ -59,44 +60,67 @@ class CLI:
     def handle_remove(self, task):
         print(f"Removing {task}")
 
-    def handle_print(self, args):
-        print(self.taskdict)
+    @staticmethod
+    def handle_print(*args, **kwargs):
+        pass
 
     def configure_argparser(self):
-        input_commands = ["add", "check", "remove"]
-        other_commands = ["print"]
-        parser = argparse.ArgumentParser(
-            description="Maintains a list of tasks."
-        )
+        parser_commands = {
+            "task": ("add",),
+            "select": ("check", "uncheck", "remove",),
+            "no_arg": ("print",)
+        }
+
+        parser = argparse.ArgumentParser()
 
         parser.add_argument(
             "--verbose",
             "-v",
             action="count",
+            dest="verbosity",
             help="increase verbosity",
             default=0,
         )
 
         parser.add_argument(
-            "command", nargs="?", default="print",
-            choices=sorted(input_commands + other_commands)
+            "--category",
+            "-c",
+            help="choose category",
         )
-        parser.add_argument("task", nargs=argparse.REMAINDER)
+
+        parser.add_argument(
+            "command",
+            choices=sum(parser_commands.values(), ()),
+            default="print",
+            nargs="?"
+            )
+
+        parser.add_argument("input", nargs="?")
 
         args = parser.parse_args()
 
-        if args.command in input_commands and not args.task:
-            parser.error(f"Task is required for {args.command}.")
-
-        args.command = getattr(self, f"handle_{args.command}")
+        if args.command not in parser_commands["no_arg"] and not args.input:
+            parser.error(f"{args.command} requires more input!")
 
         return args
 
     def main(self):
         args = self.configure_argparser()
-        print(args)
+        configure_logger(args.verbosity)
+        LOG.debug(args)
+
+        try:
+            func = getattr(self, f"handle_{args.command}")
+        except AttributeError:
+            print(f"Unable to parse command: {args.command}")
+            sys.exit()
+
+        func(args)
+
+        print(self.taskdict)
+
+        # Write list back
 
 
 def main():
-    configure_logger(3)
     CLI().main()
