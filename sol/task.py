@@ -8,7 +8,7 @@ from time import time
 LOG = logging.getLogger(__name__)
 
 
-def from_string(string):
+def task_from_string(string):
     class_list = (TimedTask, Task)
 
     previous = None

@@ -3,7 +3,7 @@ import textwrap
 from datetime import datetime
 from pathlib import Path
 
-from .task import from_string
+from .task import task_from_string
 from .tasklist import TaskList
 
 LOG = logging.getLogger(__name__)
@@ -60,7 +60,7 @@ class TaskDict:
                         continue
 
                     try:
-                        task = from_string(line)
+                        task = task_from_string(line)
                         try:
                             taskdict.append(category, task)
                         except TypeError:
