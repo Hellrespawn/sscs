@@ -1,11 +1,11 @@
 import setuptools
 
-import sol as project
+import sol
 
-name = project.__name__
+name = sol.__name__
 username = "Hellrespawn"
 description = "Template for Python projects."
-version = project.__version__
+version = sol.__version__
 
 try:
     with open("README.md", "r") as fh:
@@ -25,5 +25,11 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=["blessed", "mutagen"],
     classifiers=["Programming Language :: Python :: 3",],
-    entry_points={"console_scripts": [f"{name} = {name}.__main__:main"]},
+    entry_points={
+        "console_scripts": [
+            f"stodo = sol.cli.stodo:main",
+            f"sscs = sol.cli.sscs:main",
+
+        ]
+    },
 )

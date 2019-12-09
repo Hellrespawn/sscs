@@ -6,13 +6,13 @@ from pathlib import Path
 
 from sol import configure_logger
 
-from .task import task_from_string, Task
-from .taskdict import TaskDict
+from ..task import task_from_string, Task
+from ..taskdict import TaskDict
 
 LOG = logging.getLogger(__name__)
 
 
-class CLI:
+class Stodo:
     def __init__(self):
         self.taskdict = self.get_taskdict()
 
@@ -123,4 +123,4 @@ class CLI:
 
 
 def main():
-    CLI().main()
+    Stodo().main()
