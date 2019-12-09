@@ -6,7 +6,7 @@ from pathlib import Path
 
 from sol import configure_logger
 
-from ..task import task_from_string, Task
+from ..task import Task, task_from_string
 from ..taskdict import TaskDict
 
 LOG = logging.getLogger(__name__)
@@ -68,7 +68,7 @@ class Stodo:
         parser_commands = {
             "task": ("add",),
             "select": ("check", "uncheck", "remove",),
-            "no_arg": ("print",)
+            "no_arg": ("print",),
         }
 
         parser = argparse.ArgumentParser()
@@ -83,17 +83,15 @@ class Stodo:
         )
 
         parser.add_argument(
-            "--category",
-            "-c",
-            help="choose category",
+            "--category", "-c", help="choose category",
         )
 
         parser.add_argument(
             "command",
             choices=sum(parser_commands.values(), ()),
             default="print",
-            nargs="?"
-            )
+            nargs="?",
+        )
 
         parser.add_argument("input", nargs="?")
 
@@ -123,4 +121,8 @@ class Stodo:
 
 
 def main():
+    from sol.task import CodeTask
+    # print(repr(CodeTask.from_string("[?] TODO?@345: This is a test!")))
+    print(CodeTask.from_comment_string(100, "/* TODO? something or other */"))
+    exit()
     Stodo().main()

@@ -2,34 +2,33 @@ import setuptools
 
 import sol
 
-name = sol.__name__
-username = "Hellrespawn"
-description = "Template for Python projects."
-version = sol.__version__
+NAME = sol.__name__
+USERNAME = "Hellrespawn"
+DESCRIPTION = "Template for Python projects."
+VERSION = sol.__version__
 
 try:
     with open("README.md", "r") as fh:
-        long_description = fh.read()
+        LONG_DESCRIPTION = fh.read()
 except FileNotFoundError:
-    long_description = description
+    LONG_DESCRIPTION = DESCRIPTION
 
 setuptools.setup(
-    name=f"{name}-{username}",
-    version=version,
+    name=f"{NAME}-{USERNAME}",
+    version=VERSION,
     author="Stef Korporaal",
     author_email="stefkorporaal@gmail.com",
-    description=description,
-    long_description=long_description,
+    description=DESCRIPTION,
+    long_description=LONG_DESCRIPTION,
     long_description_content_type="text/markdown",
-    url=f"https://github.com/Hellrespawn/{name}",
+    url=f"https://github.com/Hellrespawn/{NAME}",
     packages=setuptools.find_packages(),
     install_requires=["blessed", "mutagen"],
-    classifiers=["Programming Language :: Python :: 3",],
+    classifiers=["Programming Language :: Python :: 3"],
     entry_points={
         "console_scripts": [
             f"stodo = sol.cli.stodo:main",
             f"sscs = sol.cli.sscs:main",
-
         ]
     },
 )

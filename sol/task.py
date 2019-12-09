@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod, abstractclassmethod
 import logging
 import re
 from base64 import b85decode, b85encode
@@ -36,7 +37,25 @@ class FromStringError(ValueError):
         super().__init__(string)
 
 
-class Task:
+class BaseTask(ABC):
+    @abstractclassmethod
+    def from_string(cls, string):
+        pass
+
+    @abstractmethod
+    def to_string(self):
+        pass
+
+    @abstractmethod
+    def __eq__(self, other):
+        pass
+
+    @abstractmethod
+    def __lt__(self, other):
+        pass
+
+
+class Task(BaseTask):
     """ Datastructure that holds a task.
 
     Format:
@@ -128,7 +147,7 @@ class Task:
 
         return tick
 
-    def to_string(self, _=None) -> str:
+    def to_string(self) -> str:
         msg = self.msg.replace('"', r"\"")
 
         string = f'[{self.state_to_tick(self.state)}] "{msg}"'
@@ -189,3 +208,81 @@ class TimedTask(Task):
         return datetime.fromtimestamp(self.timestamp).strftime(
             self.STRFP_FORMAT
         )
+
+
+class CodeTask(Task):
+    IDEA_CATEGORIES = ("IDEA", "TODO?")
+
+    def __init__(
+        self, msg: str, category: str, line_no: int, state: Task.STATE = None,
+    ) -> None:
+
+        self.category = category
+        if category in self.IDEA_CATEGORIES and state != Task.STATE.IDEA:
+            raise ValueError("CodeTask category does not match state!")
+        self.line_no = line_no
+
+        super().__init__(msg, state)
+
+    def __repr__(self):
+        return (
+            f"CodeTask(msg={self.msg!r}, "
+            f"category={self.category!r}, "
+            f"line_no={self.line_no!r}, "
+            f"state={self.state!r})"
+        )
+
+    @classmethod
+    def from_string(cls, string):
+        task = Task.from_string(string)
+
+        expr = (
+            r"(?P<category>.+?)"
+            r"@(?P<line_no>[0-9]+)?"
+            r":(?P<msg>.*)"
+        )
+
+        match = re.match(expr, task.msg)
+        if not match:
+            raise FromStringError(string, str(cls))
+
+        category = match.group("category")
+        line_no = int(match.group("line_no"))
+        msg = match.group("msg")
+
+        return cls(msg, category, line_no, task.state)
+
+    def to_string(self):
+        msg = self.msg.replace('"', r"\"")
+
+        string = (
+            f"[{self.state_to_tick(self.state)}]"
+            f' {self.category}@{self.line_no!s}: "{msg}"'
+        )
+
+        return string
+
+    @staticmethod
+    def filter_comment_chars(string):
+        comment_chars = ["#", ";", "//", "/*", "*/"]
+
+        for char in comment_chars:
+            if string.startswith(char):
+                string = string[len(char):]
+
+            if string.endswith(char):
+                string = string[:len(string) - len(char)]
+
+        return string.strip()
+
+    @classmethod
+    def from_comment_string(cls, line_no, string):
+        string = cls.filter_comment_chars(string)
+        category, msg = string.split(maxsplit=1)
+
+        if category in cls.IDEA_CATEGORIES:
+            state = cls.STATE.IDEA
+        else:
+            state = cls.STATE.NOTDONE
+
+        return cls(msg, category, line_no, state)
