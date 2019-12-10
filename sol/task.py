@@ -39,8 +39,8 @@ class FromStringError(ValueError):
 
 
 class BaseTask(ABC):
-    @abstractmethod
     @classmethod
+    @abstractmethod
     def from_string(cls, string):
         pass
 
@@ -52,8 +52,8 @@ class BaseTask(ABC):
     def __eq__(self, other):
         pass
 
-    @abstractmethod
     @staticmethod
+    @abstractmethod
     def cmp_tpl(task):
         pass
 
