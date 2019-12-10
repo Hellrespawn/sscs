@@ -118,12 +118,6 @@ class Task(BaseTask):
 
     @staticmethod
     def filter_string(string: str) -> str:
-        try:
-            index = string.index("#")
-            string = string[:index]
-        except ValueError:
-            pass
-
         string = string.replace("\n", "")
         string = string.replace("\t", r"%indent%")
         string = string.strip()
@@ -299,8 +293,11 @@ class CodeTask(Task):
 
     @classmethod
     def from_comment_string(cls, line_no, string):
+        string = cls.filter_string(string)
         string = cls.filter_comment_chars(string)
+
         category, msg = string.split(maxsplit=1)
+        category = category.replace(":", "")
         if category not in cls.CATEGORIES:
             raise ValueError(f'Unknown category: "{category}"')
 

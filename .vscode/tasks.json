@@ -3,15 +3,15 @@
     // for the documentation about the tasks.json format
     "version": "2.0.0",
     "tasks": [
-        // {
-        //     "label": "Generate To-Do",
-        //     "type": "shell",
-        //     "command": "python3 dev/todo.py",
-        //     "problemMatcher": [],
-        //     "presentation": {
-        //         "focus": true
-        //     }
-        // },
+        {
+            "label": "Generate To-Do",
+            "type": "shell",
+            "command": "sscs -o doc/todo.txt --force",
+            "problemMatcher": [],
+            "presentation": {
+                "focus": true
+            }
+        },
         {
             "label": "Format source code",
             "dependsOrder": "sequence",

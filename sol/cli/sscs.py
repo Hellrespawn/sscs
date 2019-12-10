@@ -18,7 +18,7 @@ class SSCS:
     MAX_RECURSION = 4
     MAX_SIZE = 1024 ** 2  # 1 MB
 
-    BLACKLIST = [".mypy_cache", ".git"]
+    BLACKLIST = [".mypy_cache", ".git", "__pycache__"]
 
     def __init__(
         self, *, whitelist: List[str] = None, blacklist: List[str] = None
@@ -81,6 +81,9 @@ class SSCS:
 
                 self.parse_source_file(filename)
 
+    def taskdict_from_todo(self, filename: Path) -> None:
+        self.taskdict = TaskDict.from_file(filename, CodeTask.from_string)
+
     def parse_args(self) -> argparse.Namespace:
         parser = argparse.ArgumentParser()
 
@@ -103,6 +106,11 @@ class SSCS:
 
         return parser.parse_args()
 
+    @staticmethod
+    def error(string: str) -> None:
+        print(string)
+        sys.exit()
+
     def main(self) -> None:
         args = self.parse_args()
 
@@ -123,6 +131,7 @@ class SSCS:
 
         if args.output is None:
             print(self.taskdict)
+
         else:
             filename = Path(args.output)
             if filename.exists() and not args.force:
@@ -130,6 +139,8 @@ class SSCS:
 
             with open(filename, "w") as file:
                 file.write(str(self.taskdict))
+
+            print(f"Wrote to {filename!s}")
 
 
 def main():

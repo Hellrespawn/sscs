@@ -2,6 +2,7 @@ import logging
 import textwrap
 from datetime import datetime
 from pathlib import Path
+from typing import Callable
 
 from .task import task_from_string
 from .tasklist import TaskList
@@ -42,44 +43,44 @@ class TaskDict:
             raise exc from None
 
     @classmethod
-    def from_file(cls, filepath) -> "TaskDict":
+    def from_file(
+        cls, filepath: Path, task_function: Callable = None
+    ) -> "TaskDict":
         filepath = Path(filepath)
+        task_function = task_function or task_from_string
 
-        try:
-            with open(filepath, "r") as file:
-                taskdict = TaskDict()
+        with open(filepath, "r") as file:
+            taskdict = TaskDict()
 
-                category = "@line 1"
+            category = "@line 1"
 
-                for i, line in enumerate(file):
-                    line = line.strip()
+            for i, line in enumerate(file):
+                line = line.strip()
 
-                    if line.startswith("#"):
-                        continue
+                if line.startswith("#"):
+                    continue
 
-                    if not line:
-                        category = f"@line {i + 1}"
-                        continue
+                if not line:
+                    category = f"@line {i + 1}"
+                    continue
 
+                try:
+                    task = task_function(line)
                     try:
-                        task = task_from_string(line)
-                        try:
-                            taskdict.append(category, task)
-                        except TypeError:
-                            # TODO Handle mixed tasklist
-                            category = f"@line {i + 1}"
-                            taskdict.append(category, task)
+                        taskdict.append(category, task)
+                    except TypeError:
+                        # TODO Handle mixed tasklist
+                        category = f"@line {i + 1}"
+                        taskdict.append(category, task)
 
-                    except ValueError:
-                        if line.endswith(":"):
-                            category = line[:-1]
-                        else:
-                            category = line
-            taskdict.filepath = filepath
-            return taskdict
+                except ValueError:
+                    if line.endswith(":"):
+                        category = line[:-1]
+                    else:
+                        category = line
 
-        except FileNotFoundError as exc:
-            raise exc from None
+        taskdict.filepath = filepath
+        return taskdict
 
     def to_file(self, filename) -> None:
         filename = Path(filename)
