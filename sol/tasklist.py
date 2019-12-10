@@ -17,7 +17,7 @@ class TaskList(MutableSequence):  # pylint: disable=too-many-ancestors
             self.tasklist.append(item)
 
     def __str__(self) -> str:
-        return self.to_string()
+        return "\n".join([str(task) for task in self.tasklist])
 
     def __repr__(self) -> str:
         return self.tasklist.__repr__()
@@ -89,27 +89,3 @@ class TaskList(MutableSequence):  # pylint: disable=too-many-ancestors
             return True
         except ValueError:
             return False
-
-    def to_string(self):
-        return "\n".join([str(task) for task in self.tasklist])
-
-
-# class CodeTaskList(BaseTaskList):
-#     def __init__(self) -> None:
-#         super().__init__(CodeTask)
-
-#     def sort(self):
-#         self.tasklist.sort(key=lambda t: (t.ttype.value, t.line_no))
-
-#     def append(self, task: CodeTask) -> None:
-#         if self.validate(task):
-#             try:
-#                 index = self.tasklist.index(task)
-#                 self.tasklist[index].line_no = task.line_no
-#                 self.tasklist[index].state = task.state
-#                 self.tasklist[index].timestamp = task.timestamp
-
-#             except ValueError:
-#                 self.tasklist.append(task)
-
-#             self.sort()

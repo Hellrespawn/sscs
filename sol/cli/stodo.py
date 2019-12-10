@@ -122,6 +122,7 @@ class Stodo:
 
 def main():
     from sol.task import CodeTask
+
     # print(repr(CodeTask.from_string("[?] TODO?@345: This is a test!")))
     print(CodeTask.from_comment_string(100, "/* TODO? something or other */"))
     exit()

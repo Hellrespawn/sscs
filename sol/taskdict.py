@@ -25,9 +25,11 @@ class TaskDict:
                 name + ":\n" + textwrap.indent(str(tasklist), indent) + "\n\n"
             )
 
-        return string
+        return string.rstrip()
 
-    def append(self, category, task):
+    def append(self, filename, task):
+        category = str(Path(filename).resolve())
+
         tasklist = self.taskdict.get(category, None)
 
         if not tasklist:
@@ -56,7 +58,7 @@ class TaskDict:
                         continue
 
                     if not line:
-                        category = f"@line {i}"
+                        category = f"@line {i + 1}"
                         continue
 
                     try:
@@ -65,7 +67,7 @@ class TaskDict:
                             taskdict.append(category, task)
                         except TypeError:
                             # TODO Handle mixed tasklist
-                            category = f"@line {i}"
+                            category = f"@line {i + 1}"
                             taskdict.append(category, task)
 
                     except ValueError:

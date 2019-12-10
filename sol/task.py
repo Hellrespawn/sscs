@@ -1,6 +1,6 @@
-from abc import ABC, abstractmethod, abstractclassmethod
 import logging
 import re
+from abc import ABC, abstractclassmethod, abstractmethod, abstractstaticmethod
 from base64 import b85decode, b85encode
 from datetime import datetime
 from enum import Enum
@@ -50,8 +50,8 @@ class BaseTask(ABC):
     def __eq__(self, other):
         pass
 
-    @abstractmethod
-    def __lt__(self, other):
+    @abstractstaticmethod
+    def cmp_tpl(task):
         pass
 
 
@@ -84,13 +84,17 @@ class Task(BaseTask):
         return self.msg == other.msg and isinstance(other, type(self))
 
     def __lt__(self, other):
-        return (self.state.value, self.msg) < (other.state.value, other.msg)
+        return self.cmp_tpl(self) < self.cmp_tpl(other)
 
     def __str__(self) -> str:
         return self.to_string()
 
     def __repr__(self):
         return f"Task(msg={self.msg!r}, state={self.state!r})"
+
+    @staticmethod
+    def cmp_tpl(task):
+        return (task.state.value, task.msg)
 
     @classmethod
     def from_string(cls, string: str) -> "Task":
@@ -165,12 +169,9 @@ class TimedTask(Task):
 
         self.timestamp = timestamp or int(time())
 
-    def __lt__(self, other):
-        return (self.state.value, self.timestamp, self.msg) < (
-            other.state.value,
-            other.timestamp,
-            other.msg,
-        )
+    @staticmethod
+    def cmp_tpl(task):
+        return (task.state.value, task.timestamp, task.msg)
 
     @classmethod
     def from_string(cls, string: str) -> "TimedTask":
@@ -212,6 +213,7 @@ class TimedTask(Task):
 
 class CodeTask(Task):
     IDEA_CATEGORIES = ("IDEA", "TODO?")
+    CATEGORIES = IDEA_CATEGORIES + ("TODO", "FIXME")
 
     def __init__(
         self, msg: str, category: str, line_no: int, state: Task.STATE = None,
@@ -232,32 +234,52 @@ class CodeTask(Task):
             f"state={self.state!r})"
         )
 
+    def __eq__(self, other):
+        return (
+            (self.msg, self.category) == (other.msg, other.category)
+        ) and isinstance(other, type(self))
+
+    @staticmethod
+    def cmp_tpl(task):
+        return (task.line_no, task.state.value, task.msg)
+
+    def __lt__(self, other):
+        return (self.line_no, self.state.value, self.msg) < (
+            other.line_no,
+            other.state.value,
+            other.msg,
+        )
+
     @classmethod
     def from_string(cls, string):
         task = Task.from_string(string)
 
-        expr = (
-            r"(?P<category>.+?)"
-            r"@(?P<line_no>[0-9]+)?"
-            r":(?P<msg>.*)"
-        )
+        expr = r"(?P<category>.+?)" r"@(?P<line_no>[0-9]+)?" r":(?P<msg>.*)"
 
         match = re.match(expr, task.msg)
         if not match:
             raise FromStringError(string, str(cls))
 
         category = match.group("category")
+        if category not in cls.CATEGORIES:
+            raise ValueError(f'Unknown category: "{category}"')
+
         line_no = int(match.group("line_no"))
         msg = match.group("msg")
 
         return cls(msg, category, line_no, task.state)
 
     def to_string(self):
+        padlen = max([len(c) for c in self.CATEGORIES])
+        category = f"{self.category:>{padlen}}"
+
+        line_no = f"{self.line_no:>04}"
+
         msg = self.msg.replace('"', r"\"")
 
         string = (
             f"[{self.state_to_tick(self.state)}]"
-            f' {self.category}@{self.line_no!s}: "{msg}"'
+            f' {category}@{line_no}: "{msg}"'
         )
 
         return string
@@ -268,10 +290,10 @@ class CodeTask(Task):
 
         for char in comment_chars:
             if string.startswith(char):
-                string = string[len(char):]
+                string = string[len(char) :]
 
             if string.endswith(char):
-                string = string[:len(string) - len(char)]
+                string = string[: len(string) - len(char)]
 
         return string.strip()
 
@@ -279,6 +301,8 @@ class CodeTask(Task):
     def from_comment_string(cls, line_no, string):
         string = cls.filter_comment_chars(string)
         category, msg = string.split(maxsplit=1)
+        if category not in cls.CATEGORIES:
+            raise ValueError(f'Unknown category: "{category}"')
 
         if category in cls.IDEA_CATEGORIES:
             state = cls.STATE.IDEA
