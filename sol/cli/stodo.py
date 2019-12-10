@@ -13,11 +13,11 @@ LOG = logging.getLogger(__name__)
 
 
 class Stodo:
-    def __init__(self):
+    def __init__(self) -> None:
         self.taskdict = self.get_taskdict()
 
     @staticmethod
-    def get_taskdict():
+    def get_taskdict() -> TaskDict:
         paths = (
             Path.home(),
             Path(__file__).parents[0],

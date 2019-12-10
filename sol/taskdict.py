@@ -2,20 +2,20 @@ import logging
 import textwrap
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Type, Union
 
-from .task import task_from_string
+from .task import Task, task_from_string
 from .tasklist import TaskList
 
 LOG = logging.getLogger(__name__)
 
 
 class TaskDict:
-    def __init__(self, filepath=None) -> None:
+    def __init__(self, filepath: Path = None) -> None:
         self.filepath = filepath
         self.taskdict: dict = {}
 
-    def __str__(self) -> str:
+    def __str__(self):
         # TODO Move this to settings
         indent = "  "
 
@@ -28,7 +28,7 @@ class TaskDict:
 
         return string.rstrip()
 
-    def append(self, filename, task):
+    def append(self, filename: Union[str, Path], task: Type[Task]) -> None:
         category = str(Path(filename).resolve())
 
         tasklist = self.taskdict.get(category, None)
@@ -67,11 +67,11 @@ class TaskDict:
                 try:
                     task = task_function(line)
                     try:
-                        taskdict.append(category, task)
+                        taskdict.append(category, task)  # type: ignore
                     except TypeError:
                         # TODO Handle mixed tasklist
                         category = f"@line {i + 1}"
-                        taskdict.append(category, task)
+                        taskdict.append(category, task)  # type: ignore
 
                 except ValueError:
                     if line.endswith(":"):
@@ -82,7 +82,7 @@ class TaskDict:
         taskdict.filepath = filepath
         return taskdict
 
-    def to_file(self, filename) -> None:
+    def to_file(self, filename: Union[Path, str]) -> None:
         filename = Path(filename)
 
         with open(filename, "w") as file:

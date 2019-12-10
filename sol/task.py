@@ -1,15 +1,16 @@
 import logging
 import re
-from abc import ABC, abstractclassmethod, abstractmethod, abstractstaticmethod
+from abc import ABC, abstractmethod
 from base64 import b85decode, b85encode
 from datetime import datetime
 from enum import Enum
 from time import time
+from typing import Dict, Tuple, Union
 
 LOG = logging.getLogger(__name__)
 
 
-def task_from_string(string):
+def task_from_string(string: str) -> Union["Task", "TimedTask"]:
     class_list = (TimedTask, Task)
 
     previous = None
@@ -19,7 +20,7 @@ def task_from_string(string):
             assert issubclass(previous, cls)
 
         try:
-            task = cls.from_string(string)
+            task = cls.from_string(string)  # type: ignore
             LOG.debug(f"Created task: {task}")
             return task
         except ValueError:
@@ -31,14 +32,15 @@ def task_from_string(string):
 
 
 class FromStringError(ValueError):
-    def __init__(self, string, type_):
+    def __init__(self, string: str, type_: str) -> None:
         string = f'Unable to parse "{string}" as {type_}!'
         LOG.debug(string)
         super().__init__(string)
 
 
 class BaseTask(ABC):
-    @abstractclassmethod
+    @abstractmethod
+    @classmethod
     def from_string(cls, string):
         pass
 
@@ -50,7 +52,8 @@ class BaseTask(ABC):
     def __eq__(self, other):
         pass
 
-    @abstractstaticmethod
+    @abstractmethod
+    @staticmethod
     def cmp_tpl(task):
         pass
 
@@ -65,7 +68,7 @@ class Task(BaseTask):
 
     STATE: Enum = Enum("STATE", "IDEA NOTDONE INPROGRESS DONE")
 
-    TICK_TO_STATE: dict = {
+    TICK_TO_STATE: Dict[str, STATE] = {
         " ": STATE.NOTDONE,
         "?": STATE.IDEA,
         "/": STATE.INPROGRESS,
@@ -93,7 +96,7 @@ class Task(BaseTask):
         return f"Task(msg={self.msg!r}, state={self.state!r})"
 
     @staticmethod
-    def cmp_tpl(task):
+    def cmp_tpl(task: "Task") -> Tuple:
         return (task.state.value, task.msg)
 
     @classmethod
@@ -164,7 +167,7 @@ class TimedTask(Task):
         self.timestamp = timestamp or int(time())
 
     @staticmethod
-    def cmp_tpl(task):
+    def cmp_tpl(task: "TimedTask") -> Tuple:  # type: ignore
         return (task.state.value, task.timestamp, task.msg)
 
     @classmethod
@@ -234,18 +237,11 @@ class CodeTask(Task):
         ) and isinstance(other, type(self))
 
     @staticmethod
-    def cmp_tpl(task):
+    def cmp_tpl(task: "CodeTask") -> Tuple:  # type: ignore
         return (task.line_no, task.state.value, task.msg)
 
-    def __lt__(self, other):
-        return (self.line_no, self.state.value, self.msg) < (
-            other.line_no,
-            other.state.value,
-            other.msg,
-        )
-
     @classmethod
-    def from_string(cls, string):
+    def from_string(cls, string: str) -> "CodeTask":
         task = Task.from_string(string)
 
         expr = r"(?P<category>.+?)" r"@(?P<line_no>[0-9]+)?" r":(?P<msg>.*)"
@@ -263,7 +259,24 @@ class CodeTask(Task):
 
         return cls(msg, category, line_no, task.state)
 
-    def to_string(self):
+    @classmethod
+    def from_comment_string(cls, line_no: int, string: str) -> "CodeTask":
+        string = cls.filter_string(string)
+        string = cls.filter_comment_chars(string)
+
+        category, msg = string.split(maxsplit=1)
+        category = category.replace(":", "")
+        if category not in cls.CATEGORIES:
+            raise ValueError(f'Unknown category: "{category}"')
+
+        if category in cls.IDEA_CATEGORIES:
+            state = cls.STATE.IDEA
+        else:
+            state = cls.STATE.NOTDONE
+
+        return cls(msg, category, line_no, state)
+
+    def to_string(self) -> str:
         padlen = max([len(c) for c in self.CATEGORIES])
         category = f"{self.category:>{padlen}}"
 
@@ -279,7 +292,7 @@ class CodeTask(Task):
         return string
 
     @staticmethod
-    def filter_comment_chars(string):
+    def filter_comment_chars(string: str) -> str:
         comment_chars = ["#", ";", "//", "/*", "*/"]
 
         for char in comment_chars:
@@ -290,20 +303,3 @@ class CodeTask(Task):
                 string = string[: len(string) - len(char)]
 
         return string.strip()
-
-    @classmethod
-    def from_comment_string(cls, line_no, string):
-        string = cls.filter_string(string)
-        string = cls.filter_comment_chars(string)
-
-        category, msg = string.split(maxsplit=1)
-        category = category.replace(":", "")
-        if category not in cls.CATEGORIES:
-            raise ValueError(f'Unknown category: "{category}"')
-
-        if category in cls.IDEA_CATEGORIES:
-            state = cls.STATE.IDEA
-        else:
-            state = cls.STATE.NOTDONE
-
-        return cls(msg, category, line_no, state)
