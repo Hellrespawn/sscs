@@ -137,6 +137,7 @@ class SSCS:
             if filename.exists() and not args.force:
                 sys.exit(f"{filename} exists! Did you mean to use --force?")
 
+            filename.parent.mkdir(parents=True, exist_ok=True)
             with open(filename, "w") as file:
                 file.write(str(self.taskdict))
 
