@@ -2,7 +2,7 @@ import logging
 import textwrap
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Type, Union
+from typing import Callable, Union
 
 from .task import Task, task_from_string
 from .tasklist import TaskList
@@ -28,7 +28,7 @@ class TaskDict:
 
         return string.rstrip()
 
-    def append(self, filename: Union[str, Path], task: Type[Task]) -> None:
+    def append(self, filename: Union[str, Path], task: Task) -> None:
         category = str(Path(filename).resolve())
 
         tasklist = self.taskdict.get(category, None)

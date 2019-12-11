@@ -14,38 +14,33 @@ __version_info__ = tuple(
 LOG = logging.getLogger(__name__)
 LOG.addHandler(logging.NullHandler())
 
+LOG_FOLDER: Path = Path(__file__).parents[1] / "log"
 
-LOG_PATH = Path(__file__).parents[1] / "log"
-
-_LOGFORMAT = "{levelname} [{module}:{funcName}]: {message}"
 _VERBOSITY_TO_LOG_LEVEL = {
     1: logging.WARNING,
     2: logging.INFO,
     3: logging.DEBUG,
 }
 
+MAX_VERBOSITY = len(_VERBOSITY_TO_LOG_LEVEL)
 
-def configure_logger(verbosity, filename=None, logformat=None):
-    """Configures the logger.
 
-    Arguments:
-        verbosity {int} -- 0 <= verbosity <= 3
-
-    Keyword Arguments:
-        filename {str} -- name of log file (default: {None})
-        logformat {str} -- "{"-style format string (default: {None})
-    """
+def configure_logger(verbosity: int, log_folder: Path = None) -> None:
+    """Configures the logger. """
     if verbosity < 1:
         # We use getEffectiveLevel() for debug functions, so we must set the
         # level even when not logging, because it defaults to logging.WARNING.
         LOG.setLevel(logging.CRITICAL)
         return
 
-    loglevel = _VERBOSITY_TO_LOG_LEVEL[min(verbosity, 3)]
+    global LOG_FOLDER
+    LOG_FOLDER = log_folder or LOG_FOLDER
 
-    filename = filename or __name__
-    destination = LOG_PATH / filename + ".log"
-    LOG_PATH.mkdir(parents=True, exist_ok=True)
+    LOG_FOLDER.mkdir(parents=True, exist_ok=True)
+
+    loglevel = _VERBOSITY_TO_LOG_LEVEL[min(verbosity, MAX_VERBOSITY)]
+
+    destination = LOG_FOLDER / (__name__ + ".log")
 
     handler = logging.handlers.RotatingFileHandler(
         destination, mode="w", delay=True, backupCount=3
@@ -53,7 +48,9 @@ def configure_logger(verbosity, filename=None, logformat=None):
     handler.doRollover()
 
     handler.setFormatter(
-        logging.Formatter(logformat or _LOGFORMAT, style="{")
+        logging.Formatter(
+            "{levelname} [{module}:{funcName}]: {message}", style="{"
+        )
     )
 
     LOG.addHandler(handler)
