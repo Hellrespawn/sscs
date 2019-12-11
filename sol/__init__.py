@@ -15,7 +15,7 @@ LOG = logging.getLogger(__name__)
 LOG.addHandler(logging.NullHandler())
 
 
-LOG_PATH = Path(Path(__file__).parents[1], "log")
+LOG_PATH = Path(__file__).parents[1] / "log"
 
 _LOGFORMAT = "{levelname} [{module}:{funcName}]: {message}"
 _VERBOSITY_TO_LOG_LEVEL = {
@@ -44,7 +44,7 @@ def configure_logger(verbosity, filename=None, logformat=None):
     loglevel = _VERBOSITY_TO_LOG_LEVEL[min(verbosity, 3)]
 
     filename = filename or __name__
-    destination = Path(LOG_PATH, filename + ".log")
+    destination = LOG_PATH / filename + ".log"
     LOG_PATH.mkdir(parents=True, exist_ok=True)
 
     handler = logging.handlers.RotatingFileHandler(

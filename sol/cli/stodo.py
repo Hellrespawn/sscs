@@ -26,7 +26,7 @@ class Stodo:
 
         filenames = ("todo.txt", ".todo.txt")
 
-        filepaths = [Path(path, name) for path in paths for name in filenames]
+        filepaths = [path / name for path in paths for name in filenames]
 
         for path in filepaths:
             try:
