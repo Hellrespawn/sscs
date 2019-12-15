@@ -3,10 +3,11 @@ import argparse
 import logging
 import re
 import sys
+from collections import defaultdict
 from datetime import datetime
 from os.path import getsize
 from pathlib import Path
-from typing import List
+from typing import DefaultDict, List, Tuple
 
 from sol import configure_logger
 from sol.task import Task
@@ -16,89 +17,107 @@ LOG = logging.getLogger(__name__)
 
 
 class SSCS:
-    CATEGORIES = ("TODO?", "TODO", "IDEA", "FIXME")
+    CATEGORIES = ("IDEA", "TODO?", "TODO", "FIXME")  # sscs: skip
+    PRIORITIES = ("C", "C", "B", "A")
 
     MAX_RECURSION = 4
     MAX_SIZE = 1024 ** 2  # 1 MB
 
-    BLACKLIST = [".mypy_cache", ".git", "__pycache__", ".log"]
-    WHITELIST = [".py"]
+    WHITELIST = [".py", ".ebnf", ".md"]
 
-    def __init__(
-        self, *, whitelist: List[str] = None, blacklist: List[str] = None
-    ) -> None:
+    SKIP = "sscs: skip"
+
+    def __init__(self, *, whitelist: List[str] = None,) -> None:
         self.whitelist = (whitelist or []) + self.WHITELIST
-        self.blacklist = (blacklist or []) + self.BLACKLIST
 
         self.tasklist = TaskList()
         self.errors: dict = {}
 
-    def line_to_task(self, string, line_no, filename):
-        categories = "|".join(self.CATEGORIES).replace("?", "\\?")
-        expr = r".*?(?P<category>" + categories + r")\s*(?P<msg>.*)"
+    @classmethod
+    def parse_match(cls, line_no, filename, match):
+        category = match.group("category")
+        priority = cls.PRIORITIES[cls.CATEGORIES.index(category)]
+        msg = match.group("msg")
+        try:
+            printname = filename.resolve().relative_to(Path.cwd())
+        except ValueError:
+            i = 0
+            while True:
+                try:
+                    printname = filename.resolve().relative_to(
+                        Path.cwd().parents[i]
+                    )
+                    break
+                except ValueError:
+                    i += 1
 
-        match = re.match(expr, string.strip())
-        if match:
-            category = match.group("category")
-            msg = match.group("msg")
-            filename = filename.relative_to(Path.cwd())
+        msg = (
+            f"({priority}) c:{category:<5} ln:{line_no + 1:>03} "
+            f"@{printname} {msg}"
+        )
 
-            msg = f"cat:{category:<5} ln:{line_no:>03} @{filename} {msg}"
+        return Task(msg)
 
-            return Task(msg)
+    @classmethod
+    def parse_source_file(
+        cls, filename: Path
+    ) -> Tuple[TaskList, DefaultDict[str, List[int]]]:
+        categories = "|".join(cls.CATEGORIES).replace("?", "\\?")
+        expr = re.compile(
+            r".*?(?P<category>" + categories + r")\s*(?P<msg>.*)"
+        )
 
-        raise ValueError(f'Unable to parse "{string.strip()}" as task')
+        tasklist = TaskList()
+        errors: DefaultDict[str, List[int]] = defaultdict(list)
 
-    def parse_source_file(self, filename: Path) -> None:
         with open(filename, "r") as file:
             try:
                 for i, line in enumerate(file):
-                    for category in self.CATEGORIES:
-                        if category in line:
-                            try:
-                                self.tasklist.append(
-                                    self.line_to_task(line, i, filename)
-                                )
-                            except ValueError as exc:
-                                tpl = (i + 1, exc)
-                                try:
-                                    self.errors[str(filename)].append(tpl)
-                                except KeyError:
-                                    self.errors[str(filename)] = [tpl]
-                            break
+                    if cls.SKIP in line:
+                        continue
+
+                    match = expr.match(line.strip())
+
+                    if not match:
+                        errors[str(filename)].append(i + 1)
+                        continue
+
+                    tasklist.append(cls.parse_match(i, filename, match))
+
             except UnicodeDecodeError:
                 pass
 
-    def recurse_project(self, path: Path, i: int = -1) -> None:
-        if i == -1:
-            i = self.MAX_RECURSION
-        elif i == 0:
-            LOG.debug(f"Exceeded max recursion depth @ {path}")
-            return
+        return tasklist, errors
 
+    def recurse_project(
+        self, path: Path, i: int = 0
+    ) -> Tuple[TaskList, DefaultDict[str, List[int]]]:
         path = Path(path)
 
-        for filename in path.iterdir():
-            if any([item in str(filename) for item in self.blacklist]):
-                continue
+        tasklist = TaskList()
+        errors: DefaultDict[str, List[int]] = defaultdict(list)
 
-            if filename.is_dir():
-                self.recurse_project(filename, i - 1)
+        for filename in path.iterdir():
+            if filename.is_dir() and i < self.MAX_RECURSION:
+                new_tasks, new_errors = self.recurse_project(filename, i + 1)
+                tasklist.extend(new_tasks)
+                errors.update(new_errors)
 
             else:
                 if getsize(filename) > self.MAX_SIZE:
                     LOG.debug(f"{filename} is too big!")
                     continue
 
-                if self.whitelist:
-                    for item in self.whitelist:
-                        if item in str(filename):
-                            break
+                for item in self.whitelist:
+                    if item in str(filename):
+                        new_tasks, new_errors = self.parse_source_file(
+                            filename
+                        )
+                        tasklist.extend(new_tasks)
+                        errors.update(new_errors)
+                        break
 
-                    else:
-                        continue
-
-                self.parse_source_file(filename)
+        return tasklist, errors
 
     def parse_args(self) -> argparse.Namespace:
         parser = argparse.ArgumentParser()
@@ -132,10 +151,12 @@ class SSCS:
 
         configure_logger(args.verbosity)
 
-        self.recurse_project(Path(args.path))
+        self.tasklist, self.errors = self.recurse_project(Path(args.path))
+
+        self.tasklist.sort()
 
         self.tasklist.insert(
-            0, Task(f"cat:header Generated on {datetime.now()}")
+            0, Task(f"c:header Generated on {datetime.now()}")
         )
 
         if self.errors:
@@ -145,7 +166,7 @@ class SSCS:
                     # pylint: disable=logging-not-lazy
                     LOG.info(
                         f"{filename!s}: "
-                        + ", ".join(str(i) for i in self.errors[filename])
+                        ", ".join(str(i) for i in self.errors[filename])
                     )
                     # pylint: enable=logging-not-lazy
 
@@ -153,15 +174,15 @@ class SSCS:
             print(self.tasklist)
 
         else:
-            filename = Path(args.output)
-            if filename.exists() and not args.force:
-                sys.exit(f"{filename} exists! Did you mean to use --force?")
+            output = Path(args.output)
+            if output.exists() and not args.force:
+                sys.exit(f"{output} exists! Did you mean to use --force?")
 
-            filename.parent.mkdir(parents=True, exist_ok=True)
+            output.parent.mkdir(parents=True, exist_ok=True)
             with open(filename, "w") as file:
                 file.write(str(self.tasklist))
 
-            print(f"Wrote to {filename!s}")
+            print(f"Wrote to {output!s}")
 
 
 def main():

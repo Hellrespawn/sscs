@@ -1,9 +1,10 @@
+# TODO? Check completed date after created date
 import logging
 import re
 from datetime import datetime
 from functools import total_ordering
 from typing import Dict, List, Optional, Tuple
-
+from string import ascii_uppercase
 from . import EXTRA_VERBOSE
 
 LOG = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ class Task:
         date_completed: datetime = None,
     ) -> None:
         self.msg = msg
-        self.complete = complete
+        self.complete = complete or ""
         self.priority = priority
         self.date_created = date_created
         self.date_completed = date_completed
@@ -87,10 +88,10 @@ class Task:
     @staticmethod
     def comparison_tuple(task):
         return (
-            task.priority,
             task.complete,
-            task.date_created,
-            task.date_completed,
+            (task.priority is None, task.priority),
+            (task.date_created is None, task.date_created),
+            (task.date_completed is None, task.date_completed),
             task.msg,
         )
 
@@ -98,47 +99,52 @@ class Task:
         return self.comparison_tuple(self) == self.comparison_tuple(other)
 
     def __lt__(self, other):
-        try:
-            return self.comparison_tuple(self) < self.comparison_tuple(other)
-        except TypeError:
-            return False
+        return self.comparison_tuple(self) < self.comparison_tuple(other)
 
     @classmethod
     def from_string(cls, string):
-        complete, string = cls.get_match(r"(x) (.*)", string)
+        complete, msg = cls.get_match(r"(.) (.*)", string)
+        if complete and complete != "x":
+            raise ValueError(f'Unable to parse checkmark in "{string}"!')
 
-        priority, string = cls.get_match(r"\(([A-Z])\) (.*)", string)
+        priority, msg = cls.get_match(r"\((.)\) (.*)", msg)
+        if priority and priority not in ascii_uppercase:
+            raise ValueError(f'Unable to parse priority in "{string}"!')
 
         if complete:
-            date_completed, string = cls.get_date(string)
+            try:
+                date_completed, msg = cls.get_date(msg)
+            except ValueError:
+                raise ValueError(f'Unable to parse completion date in "{string}"!')
+
         else:
             date_completed = None
 
-        date_created, msg = cls.get_date(string)
+        try:
+            date_created, msg = cls.get_date(msg)
+        except ValueError:
+            raise ValueError(f'Unable to parse completion date in "{string}"!')
 
         return cls(msg, complete, priority, date_created, date_completed)
 
     @staticmethod
     def get_match(expr: str, string: str) -> Tuple[Optional[str], str]:
-        output: Tuple[Optional[str], str] = (None, string)
-
         match = re.match(expr, string)
         if match:
-            output = match.group(1), match.group(2)
+            return match.group(1), match.group(2)
 
-        return output
+        return (None, string)
 
     @classmethod
     def get_date(cls, string: str) -> Tuple[Optional[datetime], str]:
-        expr = r"([0-9]{4}-[0-9]{2}-[0-9]{2}) (.*)"
+        expr = r"(.{4}-.{2}-.{2}) (.*)"
 
-        date = None
-        match, string = cls.get_match(expr, string)
+        date, string = cls.get_match(expr, string)
 
-        if match is not None:
-            date = datetime.strptime(match, r"%Y-%m-%d")
+        if date is not None:
+            return datetime.strptime(date, r"%Y-%m-%d"), string
 
-        return date, string
+        return None, string
 
     @staticmethod
     def get_tags(string: str, tag: str) -> List[str]:

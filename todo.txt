@@ -1,6 +1,0 @@
-(A) Thank Mom for the meatballs @phone
-(B) Schedule Goodwill pickup +GarageSale @phone
-Post signs around the neighborhood +GarageSale
-@GroceryStore Eskimo pies
-x (B) 2011-03-02 2011-03-01 This is a text +Project @context key:value
-(A) Call Mom +Family +PeaceLoveAndHappiness @iphone @phone

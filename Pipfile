@@ -16,3 +16,7 @@ mypy = "*"
 
 [requires]
 python_version = "3"
+
+[packages]
+click = "*"
+click-default-group = "*"

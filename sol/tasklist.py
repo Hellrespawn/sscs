@@ -17,16 +17,20 @@ class TaskList(list):
     def __str__(self) -> str:
         return "\n".join(str(task) for task in self)
 
-    # def append(self, item):
-    #     LOG.debug(f'Appending: {item}')
-    #     super().append(item)
+    def string_with_index(self):
+        oom = len(str(len(self)))
+        return "\n".join(
+            f"{i:>0{oom}} {task}" for i, task in enumerate(self)
+        )
 
     @classmethod
     def from_iterable(cls, iterable: Iterable[str]) -> "TaskList":
         tasklist = cls()
 
         for string in iterable:
-            tasklist.append(Task.from_string(string.strip()))
+            string = string.strip()
+            if string:
+                tasklist.append(Task.from_string(string))
 
         return tasklist
 
@@ -37,7 +41,7 @@ class TaskList(list):
         project_1: bool,
         context_1: bool,
         strict: bool,
-        case_sens: bool
+        case_sens: bool,
     ):
         if project_1:
             target = "projects"
