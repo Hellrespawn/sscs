@@ -1,91 +1,59 @@
 import logging
-from collections.abc import MutableSequence
-from typing import Any, Iterable
+from typing import Iterable
 
+from .builder import Attr, Builder
 from .task import Task
 
 LOG = logging.getLogger(__name__)
 
 
-class TaskList(MutableSequence):  # pylint: disable=too-many-ancestors
-    def __init__(self, iterable=None, *, tasktype=None):
-        self.tasktype = tasktype
-
-        self.tasklist: list = []
-
-        for item in iterable or []:
-            self.tasklist.append(item)
+class TaskList(list):
+    @property
+    def filter(self):
+        return Builder(
+            self._filter,
+            (
+                Attr("case_sens"),
+                Attr("strict"),
+                Attr("project", 1),
+                Attr("context", 1),
+            ),
+        )
 
     def __str__(self) -> str:
-        return "\n".join([str(task) for task in self.tasklist])
+        return "\n".join(str(task) for task in self)
 
-    def __repr__(self) -> str:
-        return self.tasklist.__repr__()
+    @classmethod
+    def from_iterable(cls, iterable: Iterable[str]) -> "TaskList":
+        tasklist = cls()
 
-    def __eq__(self, other) -> bool:
-        for task in self.tasklist:
-            if task not in other:
-                return False
+        for string in iterable:
+            tasklist.append(Task.from_string(string.strip()))
 
-        return True
+        return tasklist
 
-    def __delitem__(self, key: Any):
-        return self.tasklist.__delitem__(key)
+    def _filter(self, search, *, project, context, strict=False, case_sens=False):
+        if project:
+            target = "projects"
 
-    def __getitem__(self, key: Any):
-        return self.tasklist.__getitem__(key)
+        elif context:
+            target = "contexts"
 
-    def __len__(self):
-        return self.tasklist.__len__()
+        if case_sens:
+            search = search.lower()
 
-    def __setitem__(self, key: Any, value: Any):
-        return self.tasklist.__setitem__(key, value)
+        results = TaskList()
 
-    def insert(self, index: int, value: Any):
-        raise NotImplementedError
+        for task in self:
+            for item in getattr(task, target):
+                if case_sens:
+                    item = item.lower()
 
-    # pylint: disable=unidiomatic-typecheck
-    def append(self, value: Any):
-        if self.tasktype is None:
-            self.tasktype = type(value)
+                if strict:
+                    if search == item:
+                        results.append(task)
+                else:
+                    if search in item:
+                        results.append(task)
 
-        elif not type(value) == self.tasktype:
-            raise TypeError("Not allowed to mix classes in TaskList!")
-
-        self.remove_task(value)
-        self.tasklist.append(value)
-
-    # pylint: enable=unidiomatic-typecheck
-
-    # pylint: disable=arguments-differ
-    def extend(self, iterable: Iterable[Any]):
-        try:
-            task = next(iter(iterable))
-            if self.tasktype is None:
-                self.tasktype = type(task)
-
-            # pylint: disable=unidiomatic-typecheck
-            condition = all(
-                [type(task) == self.tasktype for task in iterable]
-            )
-            # pylint: enable=unidiomatic-typecheck
-
-            if not condition:
-                raise TypeError("Not allowed to mix classes in TaskList!")
-
-            for task in iterable:
-                self.remove_task(task)
-
-            return self.tasklist.extend(iterable)
-
-        except StopIteration:
-            return self.tasklist
-
-    # pylint: enable=arguments-differ
-
-    def remove_task(self, task: Task):
-        try:
-            self.tasklist.remove(task)
-            return True
-        except ValueError:
-            return False
+        return results

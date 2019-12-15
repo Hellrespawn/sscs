@@ -1,305 +1,178 @@
 import logging
 import re
-from abc import ABC, abstractmethod
-from base64 import b85decode, b85encode
 from datetime import datetime
 from enum import Enum
-from time import time
-from typing import Dict, Tuple, Union
+from functools import total_ordering
+from typing import Dict, List, Optional, Tuple
+
+from . import EXTRA_VERBOSE
 
 LOG = logging.getLogger(__name__)
 
 
-def task_from_string(string: str) -> Union["Task", "TimedTask"]:
-    class_list = (TimedTask, Task)
+@total_ordering
+class Task:
+    class STATE(Enum):
+        TODO = " "
+        IDEA = "?"
+        INPROGRESS = "/"
+        DONE = "x"
 
-    previous = None
+    def __init__(
+        self,
+        msg: str,
+        state: STATE = None,
+        priority: str = None,
+        created: datetime = None,
+        completed: datetime = None,
+    ) -> None:
+        self.msg = msg
 
-    for cls in class_list:
-        if previous:
-            assert issubclass(previous, cls)
+        self.state = state or self.STATE.TODO
+        self.priority = priority
+        self.created = created
+        self.completed = completed
 
-        try:
-            task = cls.from_string(string)  # type: ignore
-            LOG.debug(f"Created task: {task}")
-            return task
-        except ValueError:
-            pass
+        if self.completed and self.state != self.STATE.DONE:
+            raise ValueError("Only completed task can have completion date!")
 
-        previous = cls
+        LOG.log(EXTRA_VERBOSE, "Created %r", self)
+        if self.contexts:
+            LOG.log(EXTRA_VERBOSE, "contexts: %r", self.contexts)
+        if self.projects:
+            LOG.log(EXTRA_VERBOSE, "projects: %r", self.projects)
+        if self.keywords:
+            LOG.log(EXTRA_VERBOSE, "keywords: %r", self.keywords)
 
-    raise FromStringError(string, "Task or subclass of Task!")
+    @property
+    def contexts(self):
+        return self.get_tags(self.msg, "@")
 
+    @property
+    def projects(self):
+        return self.get_tags(self.msg, "+")
 
-class FromStringError(ValueError):
-    def __init__(self, string: str, type_: str) -> None:
-        string = f'Unable to parse "{string}" as {type_}!'
-        LOG.debug(string)
-        super().__init__(string)
+    @property
+    def keywords(self):
+        return self.get_keywords(self.msg)
 
+    def __str__(self):
+        parts = []
 
-class BaseTask(ABC):
-    @classmethod
-    @abstractmethod
-    def from_string(cls, string):
-        pass
+        if self.state and self.state != self.STATE.TODO:
+            parts.append(self.state.value)
 
-    @abstractmethod
-    def to_string(self):
-        pass
+        if self.priority:
+            parts.append(f"({self.priority})")
 
-    @abstractmethod
-    def __eq__(self, other):
-        pass
+        if self.completed:
+            parts.append(self.completed.strftime(r"%Y-%m-%d"))
+
+        if self.created:
+            parts.append(self.created.strftime(r"%Y-%m-%d"))
+
+        parts.append(self.msg)
+
+        return " ".join(parts)
+
+    def __repr__(self):
+        params = ("msg", "state", "priority", "created", "completed")
+
+        args = ", ".join(
+            f"{param}={getattr(self, param)!r}"
+            for param in params
+            if getattr(self, param) is not None
+        )
+
+        return f"{__name__}.Task({args})"
 
     @staticmethod
-    @abstractmethod
-    def cmp_tpl(task):
-        pass
-
-
-class Task(BaseTask):
-    """ Datastructure that holds a task.
-
-    Format:
-        [$timestamp][$state] $message
-        [UFJW-][ ] This is a task
-    """
-
-    STATE: Enum = Enum("STATE", "IDEA NOTDONE INPROGRESS DONE")
-
-    TICK_TO_STATE: Dict[str, STATE] = {
-        " ": STATE.NOTDONE,
-        "?": STATE.IDEA,
-        "/": STATE.INPROGRESS,
-        "x": STATE.DONE,
-    }
-
-    def __init__(self, msg: str, state: STATE = None) -> None:
-        self.msg = Task.filter_string(msg)
-
-        self.state = state or Task.STATE.NOTDONE
-
-        if self.state not in Task.STATE:
-            raise TypeError(f'"{self.state}" is not a valid Task state.')
+    def comparison_tuple(task):
+        return (
+            task.priority,
+            task.state,
+            task.created,
+            task.completed,
+            task.msg,
+        )
 
     def __eq__(self, other):
-        return self.msg == other.msg and isinstance(other, type(self))
+        return self.comparison_tuple(self) == self.comparison_tuple(other)
 
     def __lt__(self, other):
-        return self.cmp_tpl(self) < self.cmp_tpl(other)
-
-    def __str__(self) -> str:
-        return self.to_string()
-
-    def __repr__(self):
-        return f"Task(msg={self.msg!r}, state={self.state!r})"
-
-    @staticmethod
-    def cmp_tpl(task: "Task") -> Tuple:
-        return (task.state.value, task.msg)
+        try:
+            return self.comparison_tuple(self) < self.comparison_tuple(other)
+        except TypeError:
+            return False
 
     @classmethod
-    def from_string(cls, string: str) -> "Task":
-        string = cls.filter_string(string)
+    def from_string(cls, string):
+        state, string = cls.get_state(string)
 
-        # fmt: off
-        expr = (
-            r"\[(?P<tick>[ ?/xX])\]"  # [$state]
-            r"\s*?(?P<msg>.*)"        # $message
-        )
-        # fmt: on
+        priority, string = cls.get_match(r"\(([A-Z])\) (.*)", string)
 
-        match = re.match(expr, string)
-        if not match:
-            raise FromStringError(string, str(cls))
-
-        state = cls.tick_to_state(match.group("tick").lower())
-        msg = cls.filter_string(match.group("msg"))
-
-        return cls(msg, state)
-
-    @staticmethod
-    def filter_string(string: str) -> str:
-        string = string.replace("\n", "")
-        string = string.replace("\t", r"%indent%")
-        string = string.strip()
-
-        if string.startswith('"') and string.endswith('"'):
-            string = string[1:-1]
-
-        return string
-
-    @staticmethod
-    def tick_to_state(tick: str) -> "STATE":
-        state = Task.TICK_TO_STATE.get(tick.lower(), None)
-
-        if not state:
-            raise ValueError(f'Unable to convert "{tick}" to state!')
-
-        return state
-
-    @staticmethod
-    def state_to_tick(state: STATE) -> str:
-        tick = {v: k for k, v in Task.TICK_TO_STATE.items()}.get(state, None)
-
-        if not tick:
-            raise ValueError(f'Unable to convert "{state}" to tick!')
-
-        return tick
-
-    def to_string(self) -> str:
-        msg = self.msg.replace('"', r"\"")
-
-        string = f'[{self.state_to_tick(self.state)}] "{msg}"'
-
-        return string
-
-
-class TimedTask(Task):
-    STRFP_FORMAT = "%Y-%m-%d %H:%M"
-
-    def __init__(
-        self, msg: str, state: Task.STATE = None, timestamp: int = None
-    ) -> None:
-        super().__init__(msg, state)
-
-        self.timestamp = timestamp or int(time())
-
-    @staticmethod
-    def cmp_tpl(task: "TimedTask") -> Tuple:  # type: ignore
-        return (task.state.value, task.timestamp, task.msg)
-
-    @classmethod
-    def from_string(cls, string: str) -> "TimedTask":
-        string = cls.filter_string(string)
-
-        expr = r"\[(?P<timestamp>.+?)\](?P<rest>.*)"
-
-        match = re.match(expr, string)
-        if not match:
-            raise FromStringError(string, str(cls))
-
-        task = super().from_string(match.group("rest"))
-
-        timestamp = cls.decode_timestamp(match.group("timestamp"))
-
-        return cls(task.msg, task.state, timestamp)
-
-    def to_string(self, parse_timestamp: bool = False) -> str:
-        if parse_timestamp:
-            return f"[{self.parse_timestamp()}]" + super().to_string()
-
-        return f"[{self.encode_timestamp()}]" + super().to_string()
-
-    def encode_timestamp(self) -> str:
-        return b85encode(self.timestamp.to_bytes(4, "big")).decode("utf-8")
-
-    @classmethod
-    def decode_timestamp(cls, encoded: str) -> int:
-        if len(encoded) == 5:
-            return int.from_bytes(b85decode(encoded), "big")
-
-        return int(datetime.strptime(encoded, cls.STRFP_FORMAT).timestamp())
-
-    def parse_timestamp(self) -> str:
-        return datetime.fromtimestamp(self.timestamp).strftime(
-            self.STRFP_FORMAT
-        )
-
-
-class CodeTask(Task):
-    IDEA_CATEGORIES = ("IDEA", "TODO?")
-    CATEGORIES = IDEA_CATEGORIES + ("TODO", "FIXME")
-
-    def __init__(
-        self, msg: str, category: str, line_no: int, state: Task.STATE = None,
-    ) -> None:
-
-        self.category = category
-        if category in self.IDEA_CATEGORIES and state != Task.STATE.IDEA:
-            raise ValueError("CodeTask category does not match state!")
-        self.line_no = line_no
-
-        super().__init__(msg, state)
-
-    def __repr__(self):
-        return (
-            f"CodeTask(msg={self.msg!r}, "
-            f"category={self.category!r}, "
-            f"line_no={self.line_no!r}, "
-            f"state={self.state!r})"
-        )
-
-    def __eq__(self, other):
-        return (
-            (self.msg, self.category) == (other.msg, other.category)
-        ) and isinstance(other, type(self))
-
-    @staticmethod
-    def cmp_tpl(task: "CodeTask") -> Tuple:  # type: ignore
-        return (task.line_no, task.state.value, task.msg)
-
-    @classmethod
-    def from_string(cls, string: str) -> "CodeTask":
-        task = Task.from_string(string)
-
-        expr = r"(?P<category>.+?)" r"@(?P<line_no>[0-9]+)?" r":(?P<msg>.*)"
-
-        match = re.match(expr, task.msg)
-        if not match:
-            raise FromStringError(string, str(cls))
-
-        category = match.group("category")
-        if category not in cls.CATEGORIES:
-            raise ValueError(f'Unknown category: "{category}"')
-
-        line_no = int(match.group("line_no"))
-        msg = match.group("msg")
-
-        return cls(msg, category, line_no, task.state)
-
-    @classmethod
-    def from_comment_string(cls, line_no: int, string: str) -> "CodeTask":
-        string = cls.filter_string(string)
-        string = cls.filter_comment_chars(string)
-
-        category, msg = string.split(maxsplit=1)
-        category = category.replace(":", "")
-        if category not in cls.CATEGORIES:
-            raise ValueError(f'Unknown category: "{category}"')
-
-        if category in cls.IDEA_CATEGORIES:
-            state = cls.STATE.IDEA
+        if state == cls.STATE.DONE:
+            completed, string = cls.get_date(string)
         else:
-            state = cls.STATE.NOTDONE
+            completed = None
 
-        return cls(msg, category, line_no, state)
+        created, msg = cls.get_date(string)
 
-    def to_string(self) -> str:
-        padlen = max([len(c) for c in self.CATEGORIES])
-        category = f"{self.category:>{padlen}}"
-
-        line_no = f"{self.line_no:>04}"
-
-        msg = self.msg.replace('"', r"\"")
-
-        string = (
-            f"[{self.state_to_tick(self.state)}]"
-            f' {category}@{line_no}: "{msg}"'
-        )
-
-        return string
+        return cls(msg, state, priority, created, completed)
 
     @staticmethod
-    def filter_comment_chars(string: str) -> str:
-        comment_chars = ["#", ";", "//", "/*", "*/"]
+    def get_match(expr: str, string: str) -> Tuple[Optional[str], str]:
+        output: Tuple[Optional[str], str] = (None, string)
 
-        for char in comment_chars:
-            if string.startswith(char):
-                string = string[len(char) :]
+        match = re.match(expr, string)
+        if match:
+            output = match.group(1), match.group(2)
 
-            if string.endswith(char):
-                string = string[: len(string) - len(char)]
+        return output
 
-        return string.strip()
+    @classmethod
+    def get_date(cls, string: str) -> Tuple[Optional[datetime], str]:
+        expr = r"([0-9]{4}-[0-9]{2}-[0-9]{2}) (.*)"
+
+        date = None
+        match, string = cls.get_match(expr, string)
+
+        if match is not None:
+            date = datetime.strptime(match, r"%Y-%m-%d")
+
+        return date, string
+
+    @classmethod
+    def get_state(cls, string: str) -> Tuple[Optional["STATE"], str]:
+        chars = "".join(s.value for s in cls.STATE)
+        expr = r"([" + chars + "]) (.*)"
+
+        state = None
+        match, string = cls.get_match(expr, string)
+
+        if match is not None:
+            state = cls.STATE(match)
+
+        return state, string
+
+    @staticmethod
+    def get_tags(string: str, tag: str) -> List[str]:
+        tags = []
+        for word in string.split():
+            if word.startswith(tag):
+                tags.append(word[1:])
+
+        return tags
+
+    @staticmethod
+    def get_keywords(string) -> Dict[str, str]:
+        keywords: Dict[str, str] = {}
+
+        expr = re.compile(r"([^:\s]+):([^:\s]+)")
+
+        for word in string.split():
+            match = expr.match(word)
+            if match:
+                keywords[match.group(1)] = match.group(2)
+
+        return keywords

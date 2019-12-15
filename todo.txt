@@ -1,20 +1,6 @@
-# Generated on: 2019-12-04 16:59:23.785993
-category 1:
-  [?] "This is an idea"
-  [ ] "This is a task"
-  [x] "This task is done!"
-  [/] "This task is not done"
-
-category 2, with TimedTasks:
-  [UFXnJ][?] "This is an idea"
-  [UFXnJ][ ] This is a task"
-  [UFXnJ][x] "This task is done!
-  [UFXnJ][/] "This task is not done"
-
-category 3, with mixed tasks, which should error:
-  [?] "This is an idea"
-  [ ] "This is a task"
-  [UFXnJ][x] "This task is done!"
-  [UFXnJ][/] "This task is not done"
-
-  [/] Unsorted task
+(A) Thank Mom for the meatballs @phone
+(B) Schedule Goodwill pickup +GarageSale @phone
+Post signs around the neighborhood +GarageSale
+@GroceryStore Eskimo pies
+x (B) 2011-03-02 2011-03-01 This is a text +Project @context key:value
+(A) Call Mom +Family +PeaceLoveAndHappiness @iphone @phone

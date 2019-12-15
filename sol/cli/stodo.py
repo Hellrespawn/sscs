@@ -1,129 +1,29 @@
-import argparse
 import logging
-import re
-import sys
-from pathlib import Path
 
-from sol import configure_logger
+import sol
 
-from ..task import Task, task_from_string
-from ..taskdict import TaskDict
+from ..tasklist import TaskList
 
 LOG = logging.getLogger(__name__)
 
 
 class Stodo:
     def __init__(self) -> None:
-        self.taskdict = self.get_taskdict()
-
-    @staticmethod
-    def get_taskdict() -> TaskDict:
-        paths = (
-            Path.home(),
-            Path(__file__).parents[0],
-            Path(__file__).parents[1],
-        )
-
-        filenames = ("todo.txt", ".todo.txt")
-
-        filepaths = [path / name for path in paths for name in filenames]
-
-        for path in filepaths:
-            try:
-                taskdict = TaskDict.from_file(path)
-                LOG.info(f"Found TaskDict at {path!s}")
-                return taskdict
-
-            except FileNotFoundError:
-                pass
-
-        LOG.info("Didn't find a TaskDict.")
-        return TaskDict()
-        # raise FileNotFoundError("No list found!")
-
-    def handle_add(self, args):
-        taskstring = args.input
-
-        print(taskstring)
-
-        if re.match(r"\[[ ?/xX]\]", taskstring):
-            task = task_from_string(taskstring)
-
-        else:
-            task = Task(taskstring)
-
-        self.taskdict.append(args.category, task)
-
-    def handle_check(self, task):
-        print(f"Checking {task}")
-
-    def handle_remove(self, task):
-        print(f"Removing {task}")
-
-    @staticmethod
-    def handle_print(*args, **kwargs):
         pass
-
-    def configure_argparser(self):
-        parser_commands = {
-            "task": ("add",),
-            "select": ("check", "uncheck", "remove",),
-            "no_arg": ("print",),
-        }
-
-        parser = argparse.ArgumentParser()
-
-        parser.add_argument(
-            "--verbose",
-            "-v",
-            action="count",
-            dest="verbosity",
-            help="increase verbosity",
-            default=0,
-        )
-
-        parser.add_argument(
-            "--category", "-c", help="choose category",
-        )
-
-        parser.add_argument(
-            "command",
-            choices=sum(parser_commands.values(), ()),
-            default="print",
-            nargs="?",
-        )
-
-        parser.add_argument("input", nargs="?")
-
-        args = parser.parse_args()
-
-        if args.command not in parser_commands["no_arg"] and not args.input:
-            parser.error(f"{args.command} requires more input!")
-
-        return args
-
-    def main(self):
-        args = self.configure_argparser()
-        configure_logger(args.verbosity)
-        LOG.debug(args)
-
-        try:
-            func = getattr(self, f"handle_{args.command}")
-        except AttributeError:
-            print(f"Unable to parse command: {args.command}")
-            sys.exit()
-
-        func(args)
-
-        print(self.taskdict)
-
-        # Write list back
 
 
 def main():
-    from sol.task import CodeTask
+    sol.configure_logger(999)
 
-    # print(repr(CodeTask.from_string("[?] TODO?@345: This is a test!")))
-    print(CodeTask.from_comment_string(100, "/* TODO? something or other */"))
-    exit()
-    Stodo().main()
+    path = sol.LOG_FOLDER.parent
+
+    with open(path / "todo.txt") as file:
+        tasklist = TaskList.from_iterable(file)
+        print(tasklist)
+        print()
+
+        print(TaskList(sorted(tasklist)))
+        print()
+
+        print(tasklist.filter.context.strict.case_sens("phone"))
+        print()
