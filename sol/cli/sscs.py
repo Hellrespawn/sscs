@@ -1,33 +1,53 @@
+# TODO? Try opening gitignore
 import argparse
 import logging
+import re
 import sys
+from datetime import datetime
 from os.path import getsize
 from pathlib import Path
 from typing import List
 
 from sol import configure_logger
-from sol.task import CodeTask
-from sol.taskdict import TaskDict
+from sol.task import Task
+from sol.tasklist import TaskList
 
 LOG = logging.getLogger(__name__)
 
 
 class SSCS:
-    CATEGORIES = ("TODO", "TODO?", "IDEA", "FIXME")
+    CATEGORIES = ("TODO?", "TODO", "IDEA", "FIXME")
 
     MAX_RECURSION = 4
     MAX_SIZE = 1024 ** 2  # 1 MB
 
-    BLACKLIST = [".mypy_cache", ".git", "__pycache__"]
+    BLACKLIST = [".mypy_cache", ".git", "__pycache__", ".log"]
+    WHITELIST = [".py"]
 
     def __init__(
         self, *, whitelist: List[str] = None, blacklist: List[str] = None
     ) -> None:
-        self.whitelist = whitelist or []
+        self.whitelist = (whitelist or []) + self.WHITELIST
         self.blacklist = (blacklist or []) + self.BLACKLIST
 
-        self.taskdict = TaskDict()
+        self.tasklist = TaskList()
         self.errors: dict = {}
+
+    def line_to_task(self, string, line_no, filename):
+        categories = "|".join(self.CATEGORIES).replace("?", "\\?")
+        expr = r".*?(?P<category>" + categories + r")\s*(?P<msg>.*)"
+
+        match = re.match(expr, string.strip())
+        if match:
+            category = match.group("category")
+            msg = match.group("msg")
+            filename = filename.relative_to(Path.cwd())
+
+            msg = f"cat:{category:<5} ln:{line_no:>03} @{filename} {msg}"
+
+            return Task(msg)
+
+        raise ValueError(f'Unable to parse "{string.strip()}" as task')
 
     def parse_source_file(self, filename: Path) -> None:
         with open(filename, "r") as file:
@@ -36,9 +56,8 @@ class SSCS:
                     for category in self.CATEGORIES:
                         if category in line:
                             try:
-                                self.taskdict.append(
-                                    filename,
-                                    CodeTask.from_comment_string(i + 1, line),
+                                self.tasklist.append(
+                                    self.line_to_task(line, i, filename)
                                 )
                             except ValueError as exc:
                                 tpl = (i + 1, exc)
@@ -50,7 +69,7 @@ class SSCS:
             except UnicodeDecodeError:
                 pass
 
-    def taskdict_from_project(self, path: Path, i: int = -1) -> None:
+    def recurse_project(self, path: Path, i: int = -1) -> None:
         if i == -1:
             i = self.MAX_RECURSION
         elif i == 0:
@@ -64,7 +83,7 @@ class SSCS:
                 continue
 
             if filename.is_dir():
-                self.taskdict_from_project(filename, i - 1)
+                self.recurse_project(filename, i - 1)
 
             else:
                 if getsize(filename) > self.MAX_SIZE:
@@ -80,9 +99,6 @@ class SSCS:
                         continue
 
                 self.parse_source_file(filename)
-
-    def taskdict_from_todo(self, filename: Path) -> None:
-        self.taskdict = TaskDict.from_file(filename, CodeTask.from_string)
 
     def parse_args(self) -> argparse.Namespace:
         parser = argparse.ArgumentParser()
@@ -116,7 +132,11 @@ class SSCS:
 
         configure_logger(args.verbosity)
 
-        self.taskdict_from_project(Path(args.path))
+        self.recurse_project(Path(args.path))
+
+        self.tasklist.insert(
+            0, Task(f"cat:header Generated on {datetime.now()}")
+        )
 
         if self.errors:
             LOG.info("Logging errors:")
@@ -130,7 +150,7 @@ class SSCS:
                     # pylint: enable=logging-not-lazy
 
         if args.output is None:
-            print(self.taskdict)
+            print(self.tasklist)
 
         else:
             filename = Path(args.output)
@@ -139,7 +159,7 @@ class SSCS:
 
             filename.parent.mkdir(parents=True, exist_ok=True)
             with open(filename, "w") as file:
-                file.write(str(self.taskdict))
+                file.write(str(self.tasklist))
 
             print(f"Wrote to {filename!s}")
 

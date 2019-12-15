@@ -1,27 +1,25 @@
 import logging
 from typing import Iterable
 
-from .builder import Attr, Builder
+from .builder import Builder
 from .task import Task
 
 LOG = logging.getLogger(__name__)
 
 
 class TaskList(list):
-    @property
-    def filter(self):
-        return Builder(
-            self._filter,
-            (
-                Attr("case_sens"),
-                Attr("strict"),
-                Attr("project", 1),
-                Attr("context", 1),
-            ),
-        )
+    filter = None
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.filter = Builder(self._filter)
 
     def __str__(self) -> str:
         return "\n".join(str(task) for task in self)
+
+    # def append(self, item):
+    #     LOG.debug(f'Appending: {item}')
+    #     super().append(item)
 
     @classmethod
     def from_iterable(cls, iterable: Iterable[str]) -> "TaskList":
@@ -32,21 +30,29 @@ class TaskList(list):
 
         return tasklist
 
-    def _filter(self, search, *, project, context, strict=False, case_sens=False):
-        if project:
+    def _filter(
+        self,
+        search: str,
+        *,
+        project_1: bool,
+        context_1: bool,
+        strict: bool,
+        case_sens: bool
+    ):
+        if project_1:
             target = "projects"
 
-        elif context:
+        elif context_1:
             target = "contexts"
 
-        if case_sens:
+        if not case_sens:
             search = search.lower()
 
         results = TaskList()
 
         for task in self:
             for item in getattr(task, target):
-                if case_sens:
+                if not case_sens:
                     item = item.lower()
 
                 if strict:

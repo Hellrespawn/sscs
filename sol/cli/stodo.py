@@ -27,3 +27,6 @@ def main():
 
         print(tasklist.filter.context.strict.case_sens("phone"))
         print()
+
+        print(tasklist.filter.project("garage"))
+        print()

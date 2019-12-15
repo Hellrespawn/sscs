@@ -1,7 +1,6 @@
 import logging
 import re
 from datetime import datetime
-from enum import Enum
 from functools import total_ordering
 from typing import Dict, List, Optional, Tuple
 
@@ -12,28 +11,21 @@ LOG = logging.getLogger(__name__)
 
 @total_ordering
 class Task:
-    class STATE(Enum):
-        TODO = " "
-        IDEA = "?"
-        INPROGRESS = "/"
-        DONE = "x"
-
     def __init__(
         self,
         msg: str,
-        state: STATE = None,
+        complete: str = None,
         priority: str = None,
-        created: datetime = None,
-        completed: datetime = None,
+        date_created: datetime = None,
+        date_completed: datetime = None,
     ) -> None:
         self.msg = msg
-
-        self.state = state or self.STATE.TODO
+        self.complete = complete
         self.priority = priority
-        self.created = created
-        self.completed = completed
+        self.date_created = date_created
+        self.date_completed = date_completed
 
-        if self.completed and self.state != self.STATE.DONE:
+        if self.date_completed and not self.complete:
             raise ValueError("Only completed task can have completion date!")
 
         LOG.log(EXTRA_VERBOSE, "Created %r", self)
@@ -59,24 +51,30 @@ class Task:
     def __str__(self):
         parts = []
 
-        if self.state and self.state != self.STATE.TODO:
-            parts.append(self.state.value)
+        if self.complete:
+            parts.append(self.complete)
 
         if self.priority:
             parts.append(f"({self.priority})")
 
-        if self.completed:
-            parts.append(self.completed.strftime(r"%Y-%m-%d"))
+        if self.date_completed:
+            parts.append(self.date_completed.strftime(r"%Y-%m-%d"))
 
-        if self.created:
-            parts.append(self.created.strftime(r"%Y-%m-%d"))
+        if self.date_created:
+            parts.append(self.date_created.strftime(r"%Y-%m-%d"))
 
         parts.append(self.msg)
 
         return " ".join(parts)
 
     def __repr__(self):
-        params = ("msg", "state", "priority", "created", "completed")
+        params = (
+            "msg",
+            "complete",
+            "priority",
+            "date_created",
+            "date_completed",
+        )
 
         args = ", ".join(
             f"{param}={getattr(self, param)!r}"
@@ -90,9 +88,9 @@ class Task:
     def comparison_tuple(task):
         return (
             task.priority,
-            task.state,
-            task.created,
-            task.completed,
+            task.complete,
+            task.date_created,
+            task.date_completed,
             task.msg,
         )
 
@@ -107,18 +105,18 @@ class Task:
 
     @classmethod
     def from_string(cls, string):
-        state, string = cls.get_state(string)
+        complete, string = cls.get_match(r"(x) (.*)", string)
 
         priority, string = cls.get_match(r"\(([A-Z])\) (.*)", string)
 
-        if state == cls.STATE.DONE:
-            completed, string = cls.get_date(string)
+        if complete:
+            date_completed, string = cls.get_date(string)
         else:
-            completed = None
+            date_completed = None
 
-        created, msg = cls.get_date(string)
+        date_created, msg = cls.get_date(string)
 
-        return cls(msg, state, priority, created, completed)
+        return cls(msg, complete, priority, date_created, date_completed)
 
     @staticmethod
     def get_match(expr: str, string: str) -> Tuple[Optional[str], str]:
@@ -141,19 +139,6 @@ class Task:
             date = datetime.strptime(match, r"%Y-%m-%d")
 
         return date, string
-
-    @classmethod
-    def get_state(cls, string: str) -> Tuple[Optional["STATE"], str]:
-        chars = "".join(s.value for s in cls.STATE)
-        expr = r"([" + chars + "]) (.*)"
-
-        state = None
-        match, string = cls.get_match(expr, string)
-
-        if match is not None:
-            state = cls.STATE(match)
-
-        return state, string
 
     @staticmethod
     def get_tags(string: str, tag: str) -> List[str]:
