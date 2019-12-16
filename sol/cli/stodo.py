@@ -1,11 +1,9 @@
 # TODO More commands: append, prepend, separate check/uncheck, remove, archive
 # TODO Support for done archive
+import argparse
 import logging
-from datetime import datetime
 from pathlib import Path
-from types import SimpleNamespace
-
-import click
+from typing import Dict
 
 import sol
 
@@ -13,112 +11,88 @@ from ..tasklist import TaskList
 
 LOG = logging.getLogger(__name__)
 
-ALIASES = {"do": "done", "print": "list", "order": "sort"}
-
-PATHS = (Path.home(), sol.LOG_FOLDER.parent / "doc")
-
-TODO_NAMES = ("todo", "to-do")  # sscs: skip
-DONE_NAMES = ("done", "finished")
+CMD_TABLE: Dict[str, str] = {}
 
 
-class AliasedGroup(click.Group):
-    def get_command(self, ctx, cmd_name):
-        cmd = click.Group.get_command(self, ctx, cmd_name)
-        if cmd is None:
+def alias(*names):
+    def wrapper(method):
+        for name in [method.__name__, *names]:
+            if name in CMD_TABLE:
+                raise ValueError(
+                    f'"{name}" is already an alias for "{CMD_TABLE[name]}"'
+                )
+            CMD_TABLE[name] = method.__name__
+        return method
+
+    return wrapper
+
+
+class STodo:
+    DEFAULT_PATHS = (Path.home(), sol.LOG_FOLDER.parent / "doc")
+    DEFAULT_NAMES = ("todo", "to-do")
+
+    def __init__(self, filename=None):
+        self.tasklist = None
+        self.parser = argparse.ArgumentParser()
+        self.args = None
+
+        locations = [
+            # path / (name + ".todo.txt")
+            path / (name + ".txt")
+            for path in self.DEFAULT_PATHS
+            for name in self.DEFAULT_NAMES
+        ]
+
+        if filename:
+            locations = [Path(filename)] + locations
+
+        print(locations)
+
+        for location in locations:
             try:
-                cmd = self.get_command(ctx, ALIASES[cmd_name])
-            except KeyError:
+                self.tasklist = TaskList.from_file(location)
+                break
+            except FileNotFoundError:
                 pass
+        else:
+            raise FileNotFoundError()
 
-        return cmd
+    def parse_args(self) -> argparse.Namespace:
+        self.parser.add_argument(
+            "--verbose",
+            "-v",
+            action="count",
+            default=0,
+            dest="verbosity",
+            help="increase verbosity",
+        )
 
+        self.parser.add_argument("--sort", "-s", help="Display sorted list")
+        self.parser.add_argument("--hide-tags", "-ht", help="Hide keyword tags")
 
-def read_tasklist():
-    locations = [
-        path / (name + ".txt")
-        for path in PATHS
-        for name in TODO_NAMES  # sscs: skip
-    ]
-    for location in locations:
+        self.parser.add_argument("command", nargs="?", default="print")
+        self.parser.add_argument("argument", nargs="*")
+
+        self.args = self.parser.parse_args()
+
+        return self.args
+
+    @alias("list", "l", "p")
+    def print(self):
+        print(self.tasklist.to_string(True))
+
+    def get_method(self, name):
         try:
-            return TaskList.from_file(location)
-        except FileNotFoundError:
-            pass
+            return getattr(self, CMD_TABLE[name])
+        except KeyError:
+            self.parser.error(f'Unknown function: "{name}"')
 
-    raise ValueError("Can't read todo.")
-
-
-@click.command(cls=AliasedGroup, invoke_without_command=True)  # type: ignore
-@click.option("-s", "--sort/--no-sort", default=False)
-@click.option("-h", "--hide-tags/--show-tags", default=False)
-@click.option("-v", "--verbose", count=True, help="level of verbosity")
-@click.pass_context
-def cli(ctx, **kwargs):
-    verbose = kwargs.get("verbose", 0)
-    sol.configure_logger(verbose)
-
-    LOG.debug("Args passed to cli(): %s", kwargs)
-
-    ctx.obj = SimpleNamespace(
-        **kwargs, tasklist=read_tasklist(), modified=False
-    )
-
-    if ctx.invoked_subcommand is None:
-        ctx.invoke(end, **kwargs)
-
-
-@cli.resultcallback()  # type: ignore
-@click.pass_context
-def end(ctx, *args, **kwargs):
-    LOG.debug("Entering callback")
-    tasklist = ctx.obj.tasklist
-    hide_tags = kwargs.get("hide_tags", False)
-
-    if ctx.obj.modified:
-        tasklist.to_file()
-
-    sort = kwargs.get("sort", False)
-    if sort:
-        tasklist = tasklist.order()
-
-    print(tasklist.to_string(print_index=True, hide_tags=hide_tags))
-
-
-@cli.command()  # type: ignore
-@click.pass_obj
-def add(nspace, **kwargs):
-    LOG.debug("Entering add")
-
-
-@cli.command()  # type: ignore
-@click.argument("index")
-@click.pass_obj
-def done(nspace, **kwargs):
-    LOG.debug("Entering done")
-    index = int(kwargs.get("index", 100000))
-    tasklist = nspace.tasklist.order() if nspace.sort else nspace.tasklist
-
-    if index <= 0 or index > len(tasklist):
-        raise click.ClickException("Invalid index!")
-
-    tsk = tasklist[index - 1]
-    tsk.complete = "" if tsk.complete else "x"
-    nspace.modified = True
-
-
-@cli.command()  # type: ignore
-@click.pass_obj
-def filter(nspace, **kwargs):
-    LOG.debug("Entering filter")
-
-
-@cli.command(name="sort")  # type: ignore
-@click.pass_obj
-def sort_(nspace, **kwargs):
-    nspace.tasklist = nspace.tasklist.order()
-    nspace.modified = True
-    LOG.debug("Entering filter")
+    def main(self):
+        args = self.parse_args()
+        print(args)
+        print(CMD_TABLE)
+        self.get_method(args.command)()
 
 
 def main():
-    cli()  # pylint: disable=no-value-for-parameter
+    STodo().main()
