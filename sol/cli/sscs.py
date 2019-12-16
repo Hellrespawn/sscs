@@ -179,7 +179,7 @@ class SSCS:
                 sys.exit(f"{output} exists! Did you mean to use --force?")
 
             output.parent.mkdir(parents=True, exist_ok=True)
-            with open(filename, "w") as file:
+            with open(output, "w") as file:
                 file.write(str(self.tasklist))
 
             print(f"Wrote to {output!s}")

@@ -3,8 +3,9 @@ import logging
 import re
 from datetime import datetime
 from functools import total_ordering
-from typing import Dict, List, Optional, Tuple
 from string import ascii_uppercase
+from typing import Dict, List, Optional, Tuple
+
 from . import EXTRA_VERBOSE
 
 LOG = logging.getLogger(__name__)
@@ -50,6 +51,9 @@ class Task:
         return self.get_keywords(self.msg)
 
     def __str__(self):
+        return self.to_string()
+
+    def to_string(self, hide_tags: bool = False):
         parts = []
 
         if self.complete:
@@ -64,7 +68,14 @@ class Task:
         if self.date_created:
             parts.append(self.date_created.strftime(r"%Y-%m-%d"))
 
-        parts.append(self.msg)
+        msg = self.msg
+
+        if hide_tags:
+            for key, value in self.keywords.items():
+                msg = msg.replace(f"{key}:{value} ", "")
+            msg.strip()
+
+        parts.append(msg)
 
         return " ".join(parts)
 
@@ -115,7 +126,9 @@ class Task:
             try:
                 date_completed, msg = cls.get_date(msg)
             except ValueError:
-                raise ValueError(f'Unable to parse completion date in "{string}"!')
+                raise ValueError(
+                    f'Unable to parse completion date in "{string}"!'
+                )
 
         else:
             date_completed = None
@@ -123,7 +136,9 @@ class Task:
         try:
             date_created, msg = cls.get_date(msg)
         except ValueError:
-            raise ValueError(f'Unable to parse completion date in "{string}"!')
+            raise ValueError(
+                f'Unable to parse completion date in "{string}"!'
+            )
 
         return cls(msg, complete, priority, date_created, date_completed)
 
@@ -156,7 +171,7 @@ class Task:
         return tags
 
     @staticmethod
-    def get_keywords(string) -> Dict[str, str]:
+    def get_keywords(string: str) -> Dict[str, str]:
         keywords: Dict[str, str] = {}
 
         expr = re.compile(r"([^:\s]+):([^:\s]+)")
