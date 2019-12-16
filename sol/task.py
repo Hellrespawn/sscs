@@ -4,6 +4,7 @@ import re
 from datetime import datetime
 from functools import total_ordering
 from string import ascii_uppercase
+from types import SimpleNamespace
 from typing import Dict, List, Optional, Tuple
 
 from . import EXTRA_VERBOSE
@@ -13,6 +14,10 @@ LOG = logging.getLogger(__name__)
 
 @total_ordering
 class Task:
+    DEFAULT = SimpleNamespace(
+        complete="", priority="", date_created=None, date_completed=None
+    )
+
     def __init__(
         self,
         msg: str,
@@ -22,10 +27,10 @@ class Task:
         date_completed: datetime = None,
     ) -> None:
         self.msg = msg
-        self.complete = complete or ""
-        self.priority = priority
-        self.date_created = date_created
-        self.date_completed = date_completed
+        self.complete = complete or self.DEFAULT.complete
+        self.priority = priority or self.DEFAULT.priority
+        self.date_created = date_created or self.DEFAULT.date_created
+        self.date_completed = date_completed or self.DEFAULT.date_completed
 
         if self.date_completed and not self.complete:
             raise ValueError("Only completed task can have completion date!")
@@ -37,6 +42,16 @@ class Task:
             LOG.log(EXTRA_VERBOSE, "projects: %r", self.projects)
         if self.keywords:
             LOG.log(EXTRA_VERBOSE, "keywords: %r", self.keywords)
+
+    @property
+    def priority(self):
+        return self._priority
+
+    @priority.setter
+    def priority(self, value):
+        if re.fullmatch(r"[A-Z]?", value) is None:
+            raise ValueError(f"{value!r} is not a valid priority! ([A-Z]?)")
+        self._priority = value
 
     @property
     def contexts(self):
@@ -96,13 +111,19 @@ class Task:
 
         return f"{__name__}.Task({args})"
 
-    @staticmethod
-    def comparison_tuple(task):
+    @classmethod
+    def comparison_tuple(cls, task):
         return (
-            task.complete,
-            (task.priority is None, task.priority),
-            (task.date_created is None, task.date_created),
-            (task.date_completed is None, task.date_completed),
+            (task.complete is cls.DEFAULT.complete, task.complete),
+            (task.priority is cls.DEFAULT.priority, task.priority),
+            (
+                task.date_created is cls.DEFAULT.date_created,
+                task.date_created,
+            ),
+            (
+                task.date_completed is cls.DEFAULT.date_completed,
+                task.date_completed,
+            ),
             task.msg,
         )
 

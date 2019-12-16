@@ -9,7 +9,7 @@ LOG = logging.getLogger(__name__)
 
 class TaskList(list):
     def __init__(self, *args, **kwargs):
-        self.filename: Path = None
+        self.filename: Path = kwargs.pop("filename", None)
         super().__init__(*args, **kwargs)
 
     def __str__(self) -> str:
@@ -61,7 +61,7 @@ class TaskList(list):
         if not case_sens:
             search = search.lower()
 
-        results = TaskList()
+        results = TaskList(filename=self.filename)
 
         for task in self:
             tgt = getattr(task, target)
@@ -79,7 +79,7 @@ class TaskList(list):
         if not case_sens:
             search = search.lower()
 
-        results = TaskList()
+        results = TaskList(filename=self.filename)
 
         for task in self:
             for item in getattr(task, target):
@@ -109,10 +109,10 @@ class TaskList(list):
         else:
             raise ValueError(f'Unable to filter by "{target}"')
 
-        results.filename = self.filename
         return results
 
     def order(self, reverse: bool = False) -> "TaskList":
-        results = TaskList(sorted(self, reverse=reverse))
-        results.filename = self.filename
+        results = TaskList(
+            sorted(self, reverse=reverse), filename=self.filename
+        )
         return results

@@ -15,7 +15,7 @@ LOG.addHandler(logging.NullHandler())
 LOG_FOLDER: Path = Path(__file__).parents[1] / "log"
 
 # There is nothing lower than logging.DEBUG (10) in the logging library,
-# but we want an extra level to avoid being too verbose when using -vv.
+# but we want an extra level to avoid being too verbose when using -vvv.
 EXTRA_VERBOSE = 5
 logging.addLevelName(EXTRA_VERBOSE, "VERBOSE")
 

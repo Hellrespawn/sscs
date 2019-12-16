@@ -51,12 +51,9 @@ class SSCS:
                 except ValueError:
                     i += 1
 
-        msg = (
-            f"({priority}) c:{category:<5} ln:{line_no + 1:>03} "
-            f"@{printname} {msg}"
-        )
+        msg = f"c:{category:<5} @{printname} ln:{line_no + 1:>03} {msg}"
 
-        return Task(msg)
+        return Task(msg, priority=priority)
 
     @classmethod
     def parse_source_file(
@@ -109,7 +106,7 @@ class SSCS:
                     continue
 
                 for item in self.whitelist:
-                    if item in str(filename):
+                    if item in filename.suffix:
                         new_tasks, new_errors = self.parse_source_file(
                             filename
                         )
@@ -158,6 +155,8 @@ class SSCS:
         self.tasklist.insert(
             0, Task(f"c:header Generated on {datetime.now()}")
         )
+
+        self.tasklist.append(Task(f"c:footer Generated on {datetime.now()}"))
 
         if self.errors:
             LOG.info("Logging errors:")

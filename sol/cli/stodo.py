@@ -3,7 +3,7 @@
 import argparse
 import logging
 from pathlib import Path
-from typing import Dict
+from typing import Callable, Dict
 
 import sol
 
@@ -11,17 +11,17 @@ from ..tasklist import TaskList
 
 LOG = logging.getLogger(__name__)
 
-CMD_TABLE: Dict[str, str] = {}
+CMD_TABLE: Dict[str, Callable] = {"": lambda *x: None}
 
 
-def alias(*names):
+def command(*aliases):
     def wrapper(method):
-        for name in [method.__name__, *names]:
-            if name in CMD_TABLE:
+        for alias in (method.__name__, *aliases):
+            if alias in CMD_TABLE:
                 raise ValueError(
-                    f'"{name}" is already an alias for "{CMD_TABLE[name]}"'
+                    f'"{alias}" is already an alias for "{CMD_TABLE[alias]}"'
                 )
-            CMD_TABLE[name] = method.__name__
+            CMD_TABLE[alias] = method
         return method
 
     return wrapper
@@ -29,12 +29,14 @@ def alias(*names):
 
 class STodo:
     DEFAULT_PATHS = (Path.home(), sol.LOG_FOLDER.parent / "doc")
-    DEFAULT_NAMES = ("todo", "to-do")
+    DEFAULT_NAMES = ("todo", "to-do", "todo-test")
 
     def __init__(self, filename=None):
         self.tasklist = None
-        self.parser = argparse.ArgumentParser()
-        self.args = None
+        self.parser = self.create_parser()
+        self.args = self.parser.parse_args()
+
+        self.modified = False
 
         locations = [
             # path / (name + ".todo.txt")
@@ -46,8 +48,6 @@ class STodo:
         if filename:
             locations = [Path(filename)] + locations
 
-        print(locations)
-
         for location in locations:
             try:
                 self.tasklist = TaskList.from_file(location)
@@ -57,8 +57,10 @@ class STodo:
         else:
             raise FileNotFoundError()
 
-    def parse_args(self) -> argparse.Namespace:
-        self.parser.add_argument(
+    @staticmethod
+    def create_parser():
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
             "--verbose",
             "-v",
             action="count",
@@ -67,31 +69,103 @@ class STodo:
             help="increase verbosity",
         )
 
-        self.parser.add_argument("--sort", "-s", help="Display sorted list")
-        self.parser.add_argument("--hide-tags", "-ht", help="Hide keyword tags")
+        parser.add_argument("--format", "-f", help="format for sort")
+        parser.add_argument(
+            "--sort", "-s", action="store_true", help="sort displayed list"
+        )
+        parser.add_argument(
+            "--hide-tags",
+            "-ht",
+            action="store_true",
+            help="hide keyword tags",
+        )
 
-        self.parser.add_argument("command", nargs="?", default="print")
-        self.parser.add_argument("argument", nargs="*")
+        parser.add_argument("command", nargs="?", default="")
+        parser.add_argument("arguments", nargs="*")
 
-        self.args = self.parser.parse_args()
+        return parser
 
-        return self.args
-
-    @alias("list", "l", "p")
-    def print(self):
-        print(self.tasklist.to_string(True))
-
-    def get_method(self, name):
+    def run_command(self, name):
         try:
-            return getattr(self, CMD_TABLE[name])
+            return CMD_TABLE[name](self)
         except KeyError:
-            self.parser.error(f'Unknown function: "{name}"')
+            self.parser.error(f'Unknown command: "{name}"')
+
+    def validate_args(self, num, type_):
+        args = self.args.arguments
+
+        if len(args) != num:
+            self.parser.error(f"{num} argument(s) expected, got {len(args)}!")
+
+        try:
+            args = [type_(arg) for arg in args]
+        except ValueError:
+            self.parser.error(f"Unable to parse arguments as {type_}!")
+
+        if num == 1:
+            return args[0]
+
+        return args
+
+    @command("check", "do", "tick")
+    def done(self):
+        index = self.validate_args(1, int) - 1
+
+        if not 0 <= index < len(self.tasklist):
+            self.parser.error(
+                f"Index must be in range 1 < i <= {len(self.tasklist)}"
+            )
+
+        if self.args.sort:
+            self.tasklist = self.tasklist.order()
+
+        self.tasklist[index].complete = (
+            "" if self.tasklist[index].complete else "x"
+        )
+
+        self.modified = True
+
+    @command("order")
+    def sort(self):
+        format_ = self.args.format
+
+        # Pre-sort
+        self.tasklist = self.tasklist.order()
+        # Post-sort
+
+        if format_ == "sscs":
+            headers = [
+                task
+                for task in self.tasklist
+                if task.keywords.get("c", "") == "header"
+            ]
+            footers = [
+                task
+                for task in self.tasklist
+                if task.keywords.get("c", "") == "footer"
+            ]
+
+            for task in headers + footers:
+                self.tasklist.remove(task)
+
+            self.tasklist = TaskList(
+                headers + self.tasklist + footers,
+                filename=self.tasklist.filename,
+            )
+
+        self.modified = True
 
     def main(self):
-        args = self.parse_args()
-        print(args)
-        print(CMD_TABLE)
-        self.get_method(args.command)()
+        print(self.args)
+        self.run_command(self.args.command)
+
+        if self.args.sort:
+            print(self.tasklist.order().to_string(True))
+        else:
+            print(self.tasklist.to_string(True))
+
+        if self.modified:
+            self.tasklist.to_file()
 
 
 def main():
