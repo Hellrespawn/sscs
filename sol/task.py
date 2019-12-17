@@ -68,7 +68,7 @@ class Task:
     def __str__(self):
         return self.to_string()
 
-    def to_string(self, hide_tags: bool = False):
+    def to_string(self, skip_tags: bool = False):
         parts = []
 
         if self.complete:
@@ -85,7 +85,7 @@ class Task:
 
         msg = self.msg
 
-        if hide_tags:
+        if skip_tags:
             for key, value in self.keywords.items():
                 msg = msg.replace(f"{key}:{value} ", "")
             msg.strip()
