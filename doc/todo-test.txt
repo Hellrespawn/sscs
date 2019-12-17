@@ -1,4 +1,4 @@
-c:header Generated on 2019-12-17 16:34:32.812749
+c:header mode:todotxt
 (B) c:TODO +sol @cli/settings.py ln:001 Make settings.py
 (B) c:TODO +sol @cli/stodo/stodo.py ln:001 More commands: append, prepend, separate check/uncheck, remove, archive
 (B) c:TODO +sol @cli/stodo/stodo.py ln:002 Support for done archive
