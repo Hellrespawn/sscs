@@ -3,7 +3,7 @@
 import argparse
 import logging
 from pathlib import Path
-from typing import Callable, Dict
+from typing import Dict
 
 import sol
 
@@ -11,30 +11,28 @@ from ..tasklist import TaskList
 
 LOG = logging.getLogger(__name__)
 
-CMD_TABLE: Dict[str, Callable] = {"": lambda *x: None}
-
-
-def command(*aliases):
-    def wrapper(method):
-        for alias in (method.__name__, *aliases):
-            if alias in CMD_TABLE:
-                raise ValueError(
-                    f'"{alias}" is already an alias for "{CMD_TABLE[alias]}"'
-                )
-            CMD_TABLE[alias] = method
-        return method
-
-    return wrapper
-
 
 class STodo:
+    CMD_TABLE: Dict[str, str] = {}
     DEFAULT_PATHS = (Path.home(), sol.LOG_FOLDER.parent / "doc")
     DEFAULT_NAMES = ("todo", "to-do", "todo-test")
 
+    class GlobalCounter(argparse.Action):
+        def __init__(self, *args, **kwargs):
+            kwargs["nargs"] = kwargs.get("nargs", 0)
+            super().__init__(*args, **kwargs)
+
+        def __call__(self, parser, args, values, option_string=None):
+            name = self.dest + "_arg"
+            if hasattr(STodo, name):
+                setattr(STodo, name, getattr(STodo, name) + 1)
+            else:
+                setattr(STodo, name, 1)
+
     def __init__(self, filename=None):
         self.tasklist = None
-        self.parser = self.create_parser()
-        self.args = self.parser.parse_args()
+        self.parser, self.args = self.create_parser()
+        sol.configure_logger(self.args.verbosity)
 
         self.modified = False
 
@@ -58,58 +56,106 @@ class STodo:
             raise FileNotFoundError()
 
     @staticmethod
-    def create_parser():
-        parser = argparse.ArgumentParser()
-        parser.add_argument(
+    def populate_parser(parser, type_):
+        if type_ == "index":
+            parser.add_argument("selection", nargs=1, type=int)
+
+        return parser
+
+    @classmethod
+    def create_subparser(cls, subparsers, name, aliases, type_, parents=None):
+        parents = parents or []
+
+        for alias in aliases:
+            if alias in cls.CMD_TABLE:
+                raise ValueError(
+                    f'"{alias}" is already an alias '
+                    f'for "{cls.CMD_TABLE[alias]}"'
+                )
+            cls.CMD_TABLE[alias] = name
+        cls.CMD_TABLE[name] = name
+
+        parser = subparsers.add_parser(name, aliases=aliases, parents=parents)
+        parser = cls.populate_parser(parser, type_)
+
+        return parser
+
+    @classmethod
+    def create_common_parser(cls):
+        common_parser = argparse.ArgumentParser(add_help=False)
+        common_parser.add_argument(
             "--verbose",
             "-v",
-            action="count",
+            action=cls.GlobalCounter,
             default=0,
             dest="verbosity",
             help="increase verbosity",
         )
-
-        parser.add_argument("--format", "-f", help="format for sort")
-        parser.add_argument(
-            "--sort", "-s", action="store_true", help="sort displayed list"
+        common_parser.add_argument(
+            "--sort",
+            "-s",
+            action=cls.GlobalCounter,
+            help="sort displayed list",
         )
-        parser.add_argument(
+        common_parser.add_argument(
             "--hide-tags",
             "-ht",
-            action="store_true",
+            action=cls.GlobalCounter,
             help="hide keyword tags",
         )
 
-        parser.add_argument("command", nargs="?", default="")
-        parser.add_argument("arguments", nargs="*")
+        return common_parser
 
-        return parser
-
-    def run_command(self, name):
-        try:
-            return CMD_TABLE[name](self)
-        except KeyError:
-            self.parser.error(f'Unknown command: "{name}"')
-
-    def validate_args(self, num, type_):
-        args = self.args.arguments
-
-        if len(args) != num:
-            self.parser.error(f"{num} argument(s) expected, got {len(args)}!")
-
-        try:
-            args = [type_(arg) for arg in args]
-        except ValueError:
-            self.parser.error(f"Unable to parse arguments as {type_}!")
-
-        if num == 1:
-            return args[0]
+    @classmethod
+    def format_args(cls, args):
+        for name in ("verbosity", "sort", "hide_tags"):
+            try:
+                setattr(args, name, getattr(STodo, name + "_arg"))
+                delattr(STodo, name + "_arg")
+            except AttributeError:
+                setattr(args, name, 0)
 
         return args
 
-    @command("check", "do", "tick")
+    @classmethod
+    def create_parser(cls):
+        common_parser = cls.create_common_parser()
+
+        root_parser = argparse.ArgumentParser(parents=[common_parser])
+        subparsers = root_parser.add_subparsers(dest="subcommand")
+
+        cls.create_subparser(
+            subparsers,
+            "done",
+            ["do", "check", "tick"],
+            "index",
+            [common_parser],
+        )
+
+        sort_parser = cls.create_subparser(
+            subparsers, "sort", ["order"], None, [common_parser],
+        )
+
+        sort_parser.add_argument(
+            "--format",
+            "-f",
+            choices=["sscs"],
+            help="sort according to format",
+        )
+
+        args = cls.format_args(root_parser.parse_args())
+
+        return root_parser, args
+
+    def run_command(self, name):
+        try:
+            return getattr(self, self.CMD_TABLE[name])()
+        except KeyError:
+            if name:
+                self.parser.error(f'Unknown command: "{name}"')
+
     def done(self):
-        index = self.validate_args(1, int) - 1
+        index = self.args.selection[0] - 1
 
         if not 0 <= index < len(self.tasklist):
             self.parser.error(
@@ -125,7 +171,6 @@ class STodo:
 
         self.modified = True
 
-    @command("order")
     def sort(self):
         format_ = self.args.format
 
@@ -157,7 +202,7 @@ class STodo:
 
     def main(self):
         print(self.args)
-        self.run_command(self.args.command)
+        self.run_command(self.args.subcommand)
 
         if self.args.sort:
             print(self.tasklist.order().to_string(True))

@@ -114,14 +114,14 @@ class Task:
     @classmethod
     def comparison_tuple(cls, task):
         return (
-            (task.complete is cls.DEFAULT.complete, task.complete),
-            (task.priority is cls.DEFAULT.priority, task.priority),
+            (task.complete != cls.DEFAULT.complete, task.complete),
+            (task.priority == cls.DEFAULT.priority, task.priority),
             (
-                task.date_created is cls.DEFAULT.date_created,
+                task.date_created == cls.DEFAULT.date_created,
                 task.date_created,
             ),
             (
-                task.date_completed is cls.DEFAULT.date_completed,
+                task.date_completed == cls.DEFAULT.date_completed,
                 task.date_completed,
             ),
             task.msg,
