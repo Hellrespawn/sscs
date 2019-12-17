@@ -40,6 +40,7 @@ class SSCS:
         msg = match.group("msg")
         try:
             printname = filename.resolve().relative_to(Path.cwd())
+
         except ValueError:
             i = 0
             while True:
@@ -51,7 +52,9 @@ class SSCS:
                 except ValueError:
                     i += 1
 
-        msg = f"c:{category:<5} @{printname} ln:{line_no + 1:>03} {msg}"
+        project, context = printname.parts[0], Path(*printname.parts[1:])
+
+        msg = f"c:{category} +{project} @{context} ln:{line_no + 1:>03} {msg}"
 
         return Task(msg, priority=priority)
 

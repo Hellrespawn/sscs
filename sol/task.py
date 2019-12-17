@@ -90,7 +90,7 @@ class Task:
                 msg = msg.replace(f"{key}:{value} ", "")
             msg.strip()
 
-        parts.append(msg)
+        parts.append(" ".join(msg.split()))
 
         return " ".join(parts)
 
