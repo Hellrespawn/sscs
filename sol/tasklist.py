@@ -93,17 +93,47 @@ class TaskList(list):
 
         return results
 
+    def _filter_keyword(
+        self, skey: str, svalue: str, strict: bool, case_sens: bool,
+    ) -> "TaskList":
+        if not case_sens:
+            skey = skey.lower()
+            svalue = svalue.lower()
+
+        results = TaskList(filename=self.filename)
+
+        for task in self:
+            for key, value in task.keywords.items():
+                if not case_sens:
+                    key = key.lower()
+                    value = value.lower()
+
+                if (strict and skey == key and svalue == value) or (
+                    not strict and skey in key and svalue in value
+                ):
+                    results.append(task)
+
+        return results
+
     def filter(
-        self, search: str, target: str, strict: bool, case_sens: bool,
+        self,
+        search: str,
+        target: str,
+        strict: bool = False,
+        case_sens: bool = False,
     ) -> "TaskList":
         if target in ("context", "project"):
             results = self._filter_iterable(
                 search, target + "s", strict, case_sens
             )
-        if target in ("complete", "msg", "priority"):
+        elif target in ("complete", "msg", "priority"):
             results = self._filter_var(
                 search, target + "s", strict, case_sens
             )
+        elif target == "keyword":
+            key, value = search.split(":")
+            results = self._filter_keyword(key, value, strict, case_sens)
+
         # elif target == "date":
         #     pass
         else:
