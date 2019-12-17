@@ -8,6 +8,7 @@ from typing import Dict
 import sol
 
 from ..tasklist import TaskList
+from .subparser import AccumulatingSubparserAction
 
 LOG = logging.getLogger(__name__)
 
@@ -16,18 +17,6 @@ class STodo:
     CMD_TABLE: Dict[str, str] = {}
     DEFAULT_PATHS = (Path.home(), sol.LOG_FOLDER.parent / "doc")
     DEFAULT_NAMES = ("todo", "to-do", "todo-test")
-
-    class GlobalCounter(argparse.Action):
-        def __init__(self, *args, **kwargs):
-            kwargs["nargs"] = kwargs.get("nargs", 0)
-            super().__init__(*args, **kwargs)
-
-        def __call__(self, parser, args, values, option_string=None):
-            name = self.dest + "_arg"
-            if hasattr(STodo, name):
-                setattr(STodo, name, getattr(STodo, name) + 1)
-            else:
-                setattr(STodo, name, 1)
 
     def __init__(self, filename=None):
         self.tasklist = None
@@ -86,43 +75,32 @@ class STodo:
         common_parser.add_argument(
             "--verbose",
             "-v",
-            action=cls.GlobalCounter,
+            # action=cls.GlobalCounter,
+            action="count",
             default=0,
             dest="verbosity",
             help="increase verbosity",
         )
         common_parser.add_argument(
-            "--sort",
-            "-s",
-            action=cls.GlobalCounter,
-            help="sort displayed list",
+            "--sort", "-s", action="store_true", help="sort displayed list",
         )
         common_parser.add_argument(
             "--hide-tags",
             "-ht",
-            action=cls.GlobalCounter,
+            action="store_true",
             help="hide keyword tags",
         )
 
         return common_parser
 
     @classmethod
-    def format_args(cls, args):
-        for name in ("verbosity", "sort", "hide_tags"):
-            try:
-                setattr(args, name, getattr(STodo, name + "_arg"))
-                delattr(STodo, name + "_arg")
-            except AttributeError:
-                setattr(args, name, 0)
-
-        return args
-
-    @classmethod
     def create_parser(cls):
         common_parser = cls.create_common_parser()
 
         root_parser = argparse.ArgumentParser(parents=[common_parser])
-        subparsers = root_parser.add_subparsers(dest="subcommand")
+        subparsers = root_parser.add_subparsers(
+            dest="subcommand", action=AccumulatingSubparserAction
+        )
 
         cls.create_subparser(
             subparsers,
@@ -143,7 +121,7 @@ class STodo:
             help="sort according to format",
         )
 
-        args = cls.format_args(root_parser.parse_args())
+        args = root_parser.parse_args()
 
         return root_parser, args
 
