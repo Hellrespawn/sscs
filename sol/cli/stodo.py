@@ -3,16 +3,15 @@
 # TODO consistent support for indices (make sscs a subclass of tasklist with)
 # TODO header and footer?
 import argparse
-import itertools
 import logging
 from collections import namedtuple
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Tuple
+from datetime import datetime
 
 import sol
 
-from ...task import Task
-from ...tasklist import TaskList
+from ..tasklist import TaskList, SSCS
 
 LOG = logging.getLogger(__name__)
 
@@ -25,6 +24,7 @@ Command = namedtuple("Command", ["name", "type", "aliases"])
 
 
 def register_command(aliases: List[str] = None, type: str = None) -> Callable:
+    aliases = aliases or []
     aliases = aliases and list(aliases)
 
     def wrapper(method: Callable) -> Callable:
@@ -36,7 +36,7 @@ def register_command(aliases: List[str] = None, type: str = None) -> Callable:
 
 
 class STodo:
-    COMMAND_MAP: Dict[str, str] = {"print": "print"}
+    COMMAND_MAP: Dict[str, str] = {}
 
     DEFAULT_PATHS: List[Path] = [Path.home(), sol.LOG_FOLDER.parent / "doc"]
     DEFAULT_NAMES: List[str] = ["todo", "to-do", "todo-test"]
@@ -56,7 +56,7 @@ class STodo:
 
         for location in locations:
             try:
-                tasklist = TaskList.from_file(location)
+                self.tasklist = TaskList.from_file(location)
                 self.filename = location
                 break
             except FileNotFoundError:
@@ -66,27 +66,16 @@ class STodo:
             raise FileNotFoundError("Unable to find valid file!")
 
         self.parser, args = self.parse_args()
+
         sol.configure_logger(args.verbosity)
-        self.settings = self.read_settings(tasklist, args)
+        LOG.debug(f"COMMAND_MAP:\n{self.COMMAND_MAP}")
+
+        self.settings = self.read_settings(self.tasklist, args)
+
+        if self.settings.mode == "sscs":
+            self.tasklist = SSCS(self.tasklist)
 
         self.modified = False
-
-        self.taskdict = self.get_taskdict(tasklist)
-
-    def get_taskdict(self, tasklist: TaskList) -> Dict[int, Task]:
-        index = itertools.count(1)
-        if self.settings.mode == "sscs":
-            taskdict = {
-                next(index): task
-                for task in tasklist
-                if task.keywords.get("c") != "header"
-                and task.keywords.get("c") != "footer"
-            }
-
-        else:
-            taskdict = {next(index): task for task in tasklist}
-
-        return taskdict
 
     #
     # Settings
@@ -97,7 +86,7 @@ class STodo:
     ) -> argparse.Namespace:
         if args.mode == "":
             try:
-                mode = tasklist[0].keywords.get("mode", "")
+                mode = tasklist[1].keywords.get("mode", "")
                 if mode:
                     args.mode = mode
             except IndexError:
@@ -187,12 +176,29 @@ class STodo:
     #
     # Support functions
     #
+    def update_footer(self):
+        if self.tasklist.footers:
+            for task in self.tasklist.footers:
+                msg = " ".join(task.msg.split()[-2:])
+                try:
+                    datetime.strptime(
+                        msg,
+                        "%Y-%m-%d %H:%M:%S.%f"
+                    )
+                except ValueError:
+                    continue
+
+                task.msg = datetime.now().strftime(
+                    "c:footer Generated on %Y-%m-%d %H:%M:%S.%f"
+                )
+                break
+
     def get_index(self) -> int:
         index = self.settings.selection[0]
 
-        if not 0 <= index < len(self.taskdict):
+        if not 1 <= index <= len(self.tasklist):
             self.parser.error(
-                f"Index must be in range 1 < i <= {len(self.taskdict)}"
+                f"Index must be in range 1 <= i <= {len(self.tasklist)}"
             )
 
         return index
@@ -201,15 +207,19 @@ class STodo:
         if name:
             for title in (f"{name}_{self.settings.mode}", name):
                 try:
-                    out = getattr(self, self.COMMAND_MAP[title])()
-                    LOG.info(f"Running command {title}")
-                    return out
+                    func = getattr(self, self.COMMAND_MAP[title])
+                    break
+
                 except AttributeError:
                     LOG.warning(f"Unable to find function {title}")
                 except KeyError:
                     LOG.warning(f"Unable to find {title} in COMMAND_MAP")
+            else:
+                LOG.info(f"Unable to find '{name}'")
 
-            LOG.info(f"Unable to find '{name}'")
+            LOG.info(f"Running command {title}")
+            return func()
+
         else:
             LOG.info("Command is empty, so only printing")
 
@@ -220,8 +230,8 @@ class STodo:
     def done(self) -> None:
         index = self.get_index()
 
-        self.taskdict[index].complete = (
-            "" if self.taskdict[index].complete else "x"
+        self.tasklist[index].complete = (
+            "" if self.tasklist[index].complete else "x"
         )
 
         self.modified = True
@@ -234,13 +244,9 @@ class STodo:
     def remove(self) -> None:
         pass
 
-    def print(self, print_index=True) -> None:
-        for index in sorted(self.taskdict.keys()):
-            line = self.taskdict[index].to_string(self.settings.skip_tags)
-            if print_index:
-                print(f"{index}: {line}")
-            else:
-                print(line)
+    @register_command()
+    def print(self) -> None:
+        print(self.tasklist.to_string(True, self.settings.skip_tags))
 
     def main(self) -> None:
         print(self.settings)
@@ -248,15 +254,10 @@ class STodo:
         self.run_command("print")
 
         if self.modified:
-            tasklist = TaskList(
-                [
-                    self.taskdict[index]
-                    for index in sorted(self.taskdict.keys())
-                ],
-                filename=self.filename,
-            )
+            if self.settings.mode == "sscs":
+                self.update_footer()
 
-            tasklist.to_file()
+            self.tasklist.to_file()
 
 
 def main():

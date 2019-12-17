@@ -1,4 +1,4 @@
-c:header mode:todotxt
+c:header mode:sscs
 (B) c:TODO +sol @cli/settings.py ln:001 Make settings.py
 (B) c:TODO +sol @cli/stodo/stodo.py ln:001 More commands: append, prepend, separate check/uncheck, remove, archive
 (B) c:TODO +sol @cli/stodo/stodo.py ln:002 Support for done archive
@@ -6,4 +6,4 @@ c:header mode:todotxt
 (C) c:TODO? +sol @cli/sscs.py ln:001 Try opening gitignore
 (C) c:TODO? +sol @cli/stodo/stodo.py ln:205 Keep history?
 (C) c:TODO? +sol @task.py ln:001 Check completed date after created date
-c:footer Generated on 2019-12-17 16:34:32.812775
+c:footer Generated on 2019-12-17 23:26:36.105024

@@ -1,19 +1,44 @@
 import logging
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, List
+from collections.abc import MutableMapping
 
 from .task import Task
 
 LOG = logging.getLogger(__name__)
 
 
-class TaskList(list):
-    def __init__(self, *args, **kwargs):
-        self.filename: Path = kwargs.pop("filename", None)
-        super().__init__(*args, **kwargs)
+class TaskList(MutableMapping):
+    def __init__(self, iterable=None, filename=None):
+        self.filename: filename
+        self._taskdict = {}
+        if iterable:
+            for elem in iterable:
+                self.append(elem)
 
     def __str__(self) -> str:
         return self.to_string()
+
+    def __delitem__(self, key):
+        self._taskdict.__delitem__(key)
+
+    def __getitem__(self, key):
+        return self._taskdict.__getitem__(key)
+
+    def __setitem__(self, key, value):
+        self._taskdict.__setitem__(key, value)
+
+    def __len__(self):
+        return self._taskdict.__len__()
+
+    def __iter__(self):
+        return (self._taskdict[i] for i in sorted(self._taskdict.keys()))
+
+    def append(self, task):
+        self._taskdict[(len(self._taskdict) + 1)] = task
+
+    def popright(self):
+        return self._taskdict.pop(len(self._taskdict))
 
     def to_file(self):
         if not self.filename:
@@ -22,17 +47,20 @@ class TaskList(list):
         with open(self.filename, "w") as file:
             file.write(self.to_string())
 
-    def to_string(self, print_index: bool = False, hide_tags: bool = False):
+    def to_string(self, print_index: bool = False, skip_tags: bool = False):
         string = ""
 
         if print_index:
-            oom = len(str(len(self)))
+            oom = len(str(len(self._taskdict)))
             string = "\n".join(
-                f"{i + 1:>0{oom}}: {task.to_string(hide_tags)}"
-                for i, task in enumerate(self)
+                f"{i:>0{oom}}: {self._taskdict[i].to_string(skip_tags)}"
+                for i in sorted(self._taskdict.keys())
             )
         else:
-            string = "\n".join(task.to_string(hide_tags) for task in self)
+            string = "\n".join(
+                self._taskdict[i].to_string(skip_tags)
+                for i in sorted(self._taskdict.keys())
+            )
 
         return string
 
@@ -115,7 +143,7 @@ class TaskList(list):
 
         return results
 
-    def filter(
+    def filter_by(
         self,
         search: str,
         target: str,
@@ -141,8 +169,46 @@ class TaskList(list):
 
         return results
 
-    def order(self, reverse: bool = False) -> "TaskList":
-        results = TaskList(
-            sorted(self, reverse=reverse), filename=self.filename
-        )
-        return results
+    # def order(self, reverse: bool = False) -> "TaskList":
+    #     results = TaskList(
+    #         sorted(self, reverse=reverse), filename=self.filename
+    #     )
+    #     return results
+
+
+class SSCS(TaskList):
+    def __init__(
+        self, tasklist: TaskList = None, filename: Path = None
+    ) -> None:
+        super().__init__(filename)
+
+        self.headers: List[Task] = []
+        self.footers: List[Task] = []
+
+        if tasklist:
+            self.filename = tasklist.filename or self.filename
+            for task in tasklist:
+                self.append(task)
+
+    def append(self, task):
+        index = len(self._taskdict) + 1
+
+        if task.keywords.get("c") == "header":
+            self.headers.append(task)
+
+        elif task.keywords.get("c") == "footer":
+            self.footers.append(task)
+
+        else:
+            self._taskdict[index] = task
+
+    def to_file(self):
+        if not self.filename:
+            raise AttributeError("TaskList doesn't have a filename!")
+
+        headers = "\n".join(task.to_string() for task in self.headers)
+        tasklist = self.to_string()
+        footers = "\n".join(task.to_string() for task in self.footers)
+
+        with open(self.filename, "w") as file:
+            file.write("\n".join((headers, tasklist, footers)))
