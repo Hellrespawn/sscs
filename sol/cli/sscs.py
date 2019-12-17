@@ -155,9 +155,7 @@ class SSCS:
 
         self.tasklist.sort()
 
-        self.tasklist.insert(
-            0, Task(f"c:header Generated on {datetime.now()}")
-        )
+        self.tasklist.insert(0, Task(f"c:header mode:sscs"))
 
         self.tasklist.append(Task(f"c:footer Generated on {datetime.now()}"))
 
