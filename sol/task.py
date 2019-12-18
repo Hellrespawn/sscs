@@ -87,8 +87,8 @@ class Task:
 
         if skip_tags:
             for key, value in self.keywords.items():
-                msg = msg.replace(f"{key}:{value} ", "")
-            msg.strip()
+                msg = msg.replace(f"{key}:{value}", "")
+                msg = msg.replace("  ", " ", 1)
 
         parts.append(" ".join(msg.split()))
 
