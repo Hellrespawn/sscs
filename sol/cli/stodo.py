@@ -136,4 +136,6 @@ class STodo(CLIApp):
 
 
 def main():
-    STodo().main()
+    from cliapp import TestApp
+    sol.configure_logger(4)
+    TestApp().main()
