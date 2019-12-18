@@ -1,7 +1,7 @@
 import argparse
 import logging
 from collections import namedtuple
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List
 
 LOG = logging.getLogger(__name__)
 LOG.addHandler(logging.NullHandler())
@@ -12,23 +12,9 @@ Command = namedtuple("Command", ["qualname", "arguments", "aliases"])
 
 
 class Argument:
-    def __init__(self, *names, default=None, nargs=None):
-        self.names = names
-        self.default = default
-        self.nargs = nargs
-
-    def __repr__(self):
-        string = ", ".join(
-            f"{attr}={getattr(self, attr)!r}"
-            for attr in dir(self)
-            if not attr.startswith("_")
-        )
-        return f"{type(self).__name__}({string})"
-
-
-class Flag(Argument):
-    def __init__(self, *names, default=None):
-        super().__init__(*names, default=default, nargs=0)
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
 
 
 def register_command(*aliases, arguments: List[Argument] = None) -> Callable:
@@ -37,7 +23,9 @@ def register_command(*aliases, arguments: List[Argument] = None) -> Callable:
 
     def wrapper(method: Callable) -> Callable:
         command = Command(
-            qualname=method.__qualname__, arguments=arguments, aliases=list(aliases)
+            qualname=method.__qualname__,
+            arguments=arguments,
+            aliases=list(aliases),
         )
         COMMAND_REGISTER.append(command)
         return method
@@ -46,15 +34,17 @@ def register_command(*aliases, arguments: List[Argument] = None) -> Callable:
 
 
 class CLIApp:
-    COMMAND_MAP: Dict[str, str] = {"default": "default"}
+    def __init__(self, common_options=None, args=None) -> None:
+        self.command_map: Dict[str, str] = {"default": "default"}
 
-    def __init__(self, common_options=None) -> None:
         self.parser = self.create_argparser(common_options)
-        args = self.parse_args(common_options)
+        args = self.parse_args(common_options, args)
 
-        LOG.debug(f"COMMAND_MAP:\n{self.COMMAND_MAP}")
+        LOG.debug(f"COMMAND_MAP:\n{self.command_map}")
 
         self.settings = self.read_settings(args)
+
+        LOG.debug(f"Settings:\n{self.settings}")
 
     @staticmethod
     def read_settings(args: argparse.Namespace) -> argparse.Namespace:
@@ -62,26 +52,15 @@ class CLIApp:
 
     @staticmethod
     def populate_parser(
-        parser: argparse.ArgumentParser, arguments: List[Union[Flag]]
+        parser: argparse.ArgumentParser, arguments: List[Argument]
     ) -> argparse.ArgumentParser:
         for arg in arguments:
             LOG.debug("Adding %r", arg)
-            if isinstance(arg, Flag):
-                parser.add_argument(
-                    *arg.names,
-                    action="store_true"
-                    if arg.default is False
-                    else "store_false",
-                )
-            elif isinstance(arg, Argument):
-                parser.add_argument(
-                    *arg.names, default=arg.default or None, nargs=arg.nargs,
-                )
+            parser.add_argument(*arg.args, **arg.kwargs)
 
         return parser
 
-    @classmethod
-    def create_subparsers(cls, subparsers: Any) -> Any:
+    def create_subparsers(self, subparsers: Any) -> Any:
         parsers = []
         LOG.debug(COMMAND_REGISTER)
 
@@ -89,48 +68,45 @@ class CLIApp:
             parts = command.qualname.split(".")
             name = parts[-1]
             prefix = ".".join(parts[:-1])
-            if prefix != cls.__qualname__:
+            if prefix != self.__class__.__qualname__:
                 continue
 
-            parser = subparsers.add_parser(
-                name, aliases=command.aliases
-            )
+            parser = subparsers.add_parser(name, aliases=command.aliases)
 
             for alias in [name] + command.aliases:
-                if alias in cls.COMMAND_MAP:
+                if alias in self.command_map:
                     raise ValueError(
                         f"{alias} is already registered to "
-                        f"{cls.COMMAND_MAP[alias]}!"
+                        f"{self.command_map[alias]}!"
                     )
-                cls.COMMAND_MAP[alias] = name
+                self.command_map[alias] = name
 
-            parser = cls.populate_parser(parser, command.arguments)
+            parser = self.populate_parser(parser, command.arguments)
             parsers.append(parser)
 
         return parsers
 
-    def parse_args(self, common_options):
-        args, extra = self.parser.parse_known_args()
+    def parse_args(self, common_options, args):
+        args, extra = self.parser.parse_known_args(args)
         args = common_options.parse_args(extra, args)
         args.command = args.command or ""
 
         return args
 
-    @classmethod
-    def create_argparser(cls, common_options=None) -> argparse.ArgumentParser:
+    def create_argparser(self, common_options=None) -> argparse.ArgumentParser:
         parents = common_options and [common_options]
         root_parser = argparse.ArgumentParser(parents=parents)
 
         subparsers = root_parser.add_subparsers(dest="command")
 
-        cls.create_subparsers(subparsers)
+        self.create_subparsers(subparsers)
 
         return root_parser
 
     def run_command(self, name: str) -> Any:
         name = name or "default"
         try:
-            func = getattr(self, self.COMMAND_MAP[name])
+            func = getattr(self, self.command_map[name])
             return func()
 
         except AttributeError:
@@ -173,28 +149,3 @@ class CLIApp:
 
     def post_command(self):
         pass
-
-
-class TestApp(CLIApp):
-    def __init__(self):
-        common_options = argparse.ArgumentParser(add_help=False)
-
-        common_options.add_argument(
-            "--verbose",
-            "-v",
-            action="count",
-            default=0,
-            dest="verbosity",
-            help="increase verbosity",
-        )
-
-        common_options.add_argument(
-            "--force",
-            "-f",
-        )
-
-        super().__init__(common_options)
-
-    @register_command("append")
-    def add(self):
-        print("adding")

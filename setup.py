@@ -27,7 +27,7 @@ setuptools.setup(
     classifiers=["Programming Language :: Python :: 3"],
     entry_points={
         "console_scripts": [
-            f"stodo = sol.cli.stodo.stodo:main",
+            f"stodo = sol.cli.stodo:main",
             f"sscs = sol.cli.sscs:main",
         ]
     },
