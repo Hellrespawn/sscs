@@ -1,7 +1,7 @@
 import logging
+from collections.abc import MutableMapping
 from pathlib import Path
 from typing import Iterable, List
-from collections.abc import MutableMapping
 
 from .task import Task
 
