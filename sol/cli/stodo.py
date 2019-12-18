@@ -102,7 +102,7 @@ class STodo(CLIApp):
     # Commands
     #
     @register_command(
-        "check", "do", "tick", "index", kwargs=[Argument("index")]
+        "check", "do", "tick", "index", arguments=[Argument("index")]
     )
     def done(self) -> None:
         index = self.get_index()
@@ -136,4 +136,6 @@ class STodo(CLIApp):
 
 
 def main():
-    STodo().main()
+    from .cliapp import TestApp
+    sol.configure_logger(4)
+    TestApp().main()

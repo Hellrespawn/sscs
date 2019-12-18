@@ -8,7 +8,7 @@ LOG.addHandler(logging.NullHandler())
 
 COMMAND_REGISTER = []
 
-Command = namedtuple("Command", ["name", "kwargs", "aliases"])
+Command = namedtuple("Command", ["qualname", "arguments", "aliases"])
 
 
 class Argument:
@@ -31,13 +31,13 @@ class Flag(Argument):
         super().__init__(*names, default=default, nargs=0)
 
 
-def register_command(*aliases, kwargs: List[Argument] = None) -> Callable:
+def register_command(*aliases, arguments: List[Argument] = None) -> Callable:
     aliases = aliases or []  # type: ignore
-    kwargs = kwargs or []
+    arguments = arguments or []
 
     def wrapper(method: Callable) -> Callable:
         command = Command(
-            name=method.__name__, kwargs=kwargs, aliases=list(aliases)
+            qualname=method.__qualname__, arguments=arguments, aliases=list(aliases)
         )
         COMMAND_REGISTER.append(command)
         return method
@@ -65,7 +65,7 @@ class CLIApp:
         parser: argparse.ArgumentParser, arguments: List[Union[Flag]]
     ) -> argparse.ArgumentParser:
         for arg in arguments:
-            LOG.debug("Adding Argument %r", arg)
+            LOG.debug("Adding %r", arg)
             if isinstance(arg, Flag):
                 parser.add_argument(
                     *arg.names,
@@ -83,20 +83,28 @@ class CLIApp:
     @classmethod
     def create_subparsers(cls, subparsers: Any) -> Any:
         parsers = []
+        LOG.debug(COMMAND_REGISTER)
 
         for command in COMMAND_REGISTER:
+            parts = command.qualname.split(".")
+            name = parts[-1]
+            prefix = ".".join(parts[:-1])
+            if prefix != cls.__qualname__:
+                continue
+
             parser = subparsers.add_parser(
-                command.name, aliases=command.aliases
+                name, aliases=command.aliases
             )
-            for alias in [command.name] + command.aliases:
+
+            for alias in [name] + command.aliases:
                 if alias in cls.COMMAND_MAP:
                     raise ValueError(
                         f"{alias} is already registered to "
                         f"{cls.COMMAND_MAP[alias]}!"
                     )
-                cls.COMMAND_MAP[alias] = command.name
+                cls.COMMAND_MAP[alias] = name
 
-            parser = cls.populate_parser(parser, command.kwargs)
+            parser = cls.populate_parser(parser, command.arguments)
             parsers.append(parser)
 
         return parsers
@@ -165,3 +173,28 @@ class CLIApp:
 
     def post_command(self):
         pass
+
+
+class TestApp(CLIApp):
+    def __init__(self):
+        common_options = argparse.ArgumentParser(add_help=False)
+
+        common_options.add_argument(
+            "--verbose",
+            "-v",
+            action="count",
+            default=0,
+            dest="verbosity",
+            help="increase verbosity",
+        )
+
+        common_options.add_argument(
+            "--force",
+            "-f",
+        )
+
+        super().__init__(common_options)
+
+    @register_command("append")
+    def add(self):
+        print("adding")
