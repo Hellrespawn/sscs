@@ -152,10 +152,9 @@ class SSCS:
         configure_logger(args.verbosity)
 
         self.tasklist, self.errors = self.recurse_project(Path(args.path))
-
         self.tasklist.sort()
 
-        self.tasklist.insert(0, Task(f"c:header mode:sscs"))
+        self.tasklist.appendleft(Task(f"c:header mode:sscs"))
 
         self.tasklist.append(Task(f"c:footer Generated on {datetime.now()}"))
 
@@ -171,7 +170,7 @@ class SSCS:
                     # pylint: enable=logging-not-lazy
 
         if args.output is None:
-            print(self.tasklist)
+            print(self.tasklist.to_string(print_index=True))
 
         else:
             output = Path(args.output)

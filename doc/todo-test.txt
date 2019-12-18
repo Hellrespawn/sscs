@@ -1,9 +1,12 @@
 c:header mode:sscs
 (B) c:TODO +sol @cli/settings.py ln:001 Make settings.py
-(B) c:TODO +sol @cli/stodo/stodo.py ln:001 More commands: append, prepend, separate check/uncheck, remove, archive
-(B) c:TODO +sol @cli/stodo/stodo.py ln:002 Support for done archive
-(B) c:TODO +sol @cli/stodo/stodo.py ln:204 Prompt for removal
+(B) c:TODO +sol @cli/stodo.py ln:001 More commands: append, prepend, separate check/uncheck, remove, archive
+(B) c:TODO +sol @cli/stodo.py ln:002 Support for done archive
+(B) c:TODO +sol @cli/stodo.py ln:003 Settings support
+(C) c:TODO? +sol @cli/cliapp.py ln:001 Spin off CLIApp into its own project?
+(C) c:TODO? +sol @cli/register.py ln:001 Convert Command, Argument to dataclass
+(C) c:TODO? +sol @cli/register.py ln:036 Write tests for register_argument without command?
 (C) c:TODO? +sol @cli/sscs.py ln:001 Try opening gitignore
-(C) c:TODO? +sol @cli/stodo/stodo.py ln:205 Keep history?
+(C) c:TODO? +sol @cli/stodo.py ln:047 Create new file here?
 (C) c:TODO? +sol @task.py ln:001 Check completed date after created date
-c:footer Generated on 2019-12-18 15:05:11.803237
+c:footer Generated on 2019-12-18 23:11:12.404794

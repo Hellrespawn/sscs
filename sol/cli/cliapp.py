@@ -1,5 +1,4 @@
-# TODO? SPin off cliapp into it's own project?
-# TODO? Convert Command, Argument to dataclass
+# TODO? Spin off CLIApp into its own project?
 import argparse
 import logging
 from typing import Any, Dict, List
