@@ -29,12 +29,12 @@ class TestApp(cliapp.CLIApp):
     def default(self):
         print("default")
 
-    @cliapp.register_command()
-    @cliapp.register_argument("--output", "-o")
+    @cliapp.Register.command()
+    @cliapp.Register.argument("--output", "-o")
     def add(self):
         print("add")
 
-    @cliapp.register_command("print")
+    @cliapp.Register.command("print")
     def list(self):
         print("list")
 

@@ -11,7 +11,7 @@ import sol
 
 from ..task import Task
 from ..tasklist import SSCS, TaskList
-from .cliapp import CLIApp, register_argument, register_command
+from .cliapp import CLIApp, Register
 
 LOG = logging.getLogger(__name__)
 
@@ -102,8 +102,8 @@ class STodo(CLIApp):
     #
     # Commands
     #
-    @register_command("check", "do", "tick", "index")
-    @register_argument("index")
+    @Register.command("check", "do", "tick", "index")
+    @Register.argument("index")
     def done(self) -> None:
         index = self.get_index()
 
@@ -113,9 +113,9 @@ class STodo(CLIApp):
 
         self.modified = True
 
-    @register_command()
-    @register_argument("task")
-    @register_argument("--date", "-d", action="store_true")
+    @Register.command()
+    @Register.argument("task")
+    @Register.argument("--date", "-d", action="store_true")
     def add(self):
         task = Task.from_string(self.settings.task)
         if self.settings.date:
@@ -131,7 +131,7 @@ class STodo(CLIApp):
     # def remove(self) -> None:
     #     pass
 
-    @register_command()
+    @Register.command()
     def print(self) -> None:
         print(self.tasklist.to_string(True, self.settings.skip_tags))
 
@@ -146,5 +146,5 @@ class STodo(CLIApp):
 
 
 def main():
-    sol.configure_logger(4)
+    sol.configure_logger(3)
     STodo().main()
