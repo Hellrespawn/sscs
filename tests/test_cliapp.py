@@ -1,7 +1,8 @@
 import argparse
-import unittest
 import logging
 import sys
+import unittest
+
 from sol import configure_logger
 from sol.cli import cliapp
 
@@ -21,16 +22,15 @@ class TestApp(cliapp.CLIApp):
             help="increase verbosity",
         )
 
-        common_options.add_argument(
-            "--force", "-f", action="store_true"
-        )
+        common_options.add_argument("--force", "-f", action="store_true")
 
         super().__init__(common_options, args)
 
     def default(self):
         print("default")
 
-    @cliapp.register_command(arguments=[cliapp.Argument("--output", "-o")])
+    @cliapp.register_command()
+    @cliapp.register_argument("--output", "-o")
     def add(self):
         print("add")
 
@@ -50,9 +50,7 @@ class TestArgs(unittest.TestCase):
         self.settings = None
 
     def setup_test_values(self, string, *values):
-        argnames = [
-            "command", "verbosity", "force"
-        ]
+        argnames = ["command", "verbosity", "force"]
 
         self.settings = TestApp(string.split()).settings
         return dict(zip(argnames, values))
@@ -82,5 +80,5 @@ class TestArgs(unittest.TestCase):
         self.assertTrue(hasattr(self.settings, "output"))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

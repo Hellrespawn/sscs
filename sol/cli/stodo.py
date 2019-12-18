@@ -9,8 +9,9 @@ from typing import List
 
 import sol
 
+from ..task import Task
 from ..tasklist import SSCS, TaskList
-from .cliapp import Argument, CLIApp, register_command
+from .cliapp import CLIApp, register_argument, register_command
 
 LOG = logging.getLogger(__name__)
 
@@ -101,9 +102,8 @@ class STodo(CLIApp):
     #
     # Commands
     #
-    @register_command(
-        "check", "do", "tick", "index", arguments=[Argument("index")]
-    )
+    @register_command("check", "do", "tick", "index")
+    @register_argument("index")
     def done(self) -> None:
         index = self.get_index()
 
@@ -112,6 +112,16 @@ class STodo(CLIApp):
         )
 
         self.modified = True
+
+    @register_command()
+    @register_argument("task")
+    @register_argument("--date", "-d", action="store_true")
+    def add(self):
+        task = Task.from_string(self.settings.task)
+        if self.settings.date:
+            task.date_created = datetime.now()
+        print(task)
+        print(repr(task))
 
     # @register_command("order")
     # def sort(self) -> None:

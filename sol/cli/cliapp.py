@@ -1,14 +1,20 @@
+# TODO? SPin off cliapp into it's own project?
+# TODO? Convert Command, Argument to dataclass
 import argparse
 import logging
-from collections import namedtuple
 from typing import Any, Callable, Dict, List
 
 LOG = logging.getLogger(__name__)
 LOG.addHandler(logging.NullHandler())
 
-COMMAND_REGISTER = []
+COMMAND_REGISTER: Dict[str, "Command"] = {}
 
-Command = namedtuple("Command", ["qualname", "arguments", "aliases"])
+
+class Command:
+    def __init__(self, qualname, arguments=None, aliases=None):
+        self.qualname = qualname
+        self.arguments = arguments or []
+        self.aliases = aliases or []
 
 
 class Argument:
@@ -17,17 +23,32 @@ class Argument:
         self.kwargs = kwargs
 
 
-def register_command(*aliases, arguments: List[Argument] = None) -> Callable:
-    aliases = aliases or []  # type: ignore
-    arguments = arguments or []
+def get_command(method: Callable) -> Command:
+    command = COMMAND_REGISTER.get(method.__qualname__)
+    if not command:
+        command = Command(qualname=method.__qualname__)
+        COMMAND_REGISTER[method.__qualname__] = command
 
+    return command
+
+
+# TODO? Consolidate decorators into class?
+# TODO? Write tests for register_argument without command?
+def register_command(*aliases) -> Callable:
     def wrapper(method: Callable) -> Callable:
-        command = Command(
-            qualname=method.__qualname__,
-            arguments=arguments,
-            aliases=list(aliases),
-        )
-        COMMAND_REGISTER.append(command)
+        command = get_command(method)
+        command.aliases = list(aliases)
+        return method
+
+    return wrapper
+
+
+def register_argument(*args, **kwargs) -> Callable:
+    def wrapper(method: Callable) -> Callable:
+        command = get_command(method)
+
+        command.arguments.append(Argument(*args, **kwargs))
+
         return method
 
     return wrapper
@@ -64,7 +85,7 @@ class CLIApp:
         parsers = []
         LOG.debug(COMMAND_REGISTER)
 
-        for command in COMMAND_REGISTER:
+        for command in COMMAND_REGISTER.values():
             parts = command.qualname.split(".")
             name = parts[-1]
             prefix = ".".join(parts[:-1])
@@ -93,7 +114,9 @@ class CLIApp:
 
         return args
 
-    def create_argparser(self, common_options=None) -> argparse.ArgumentParser:
+    def create_argparser(
+        self, common_options=None
+    ) -> argparse.ArgumentParser:
         parents = common_options and [common_options]
         root_parser = argparse.ArgumentParser(parents=parents)
 
