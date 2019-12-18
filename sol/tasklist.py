@@ -37,8 +37,32 @@ class TaskList(MutableMapping):
     def append(self, task):
         self._taskdict[(len(self._taskdict) + 1)] = task
 
+    def appendleft(self, task):
+        self.insert(1, task)
+
+    def extend(self, tasklist):
+        for task in tasklist:
+            self.append(task)
+
+    def insert(self, index, task):
+        if index == 0:
+            raise ValueError("Indices from 1!")
+
+        original_tasks = []
+        for i in range(index, len(self) + 1):
+            original_tasks.append(self.pop(i))
+
+        self.append(task)
+        for original_task in original_tasks:
+            self.append(original_task)
+
     def popright(self):
         return self._taskdict.pop(len(self._taskdict))
+
+    def sort(self):
+        tasks = sorted(self._taskdict.values())
+        for i, task in enumerate(tasks):
+            self._taskdict[i + 1] = task
 
     def to_file(self):
         if not self.filename:
