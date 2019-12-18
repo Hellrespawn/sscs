@@ -6,4 +6,4 @@ c:header mode:sscs
 (C) c:TODO? +sol @cli/sscs.py ln:001 Try opening gitignore
 (C) c:TODO? +sol @cli/stodo/stodo.py ln:205 Keep history?
 (C) c:TODO? +sol @task.py ln:001 Check completed date after created date
-c:footer Generated on 2019-12-17 23:26:36.105024
+c:footer Generated on 2019-12-18 15:05:11.803237
