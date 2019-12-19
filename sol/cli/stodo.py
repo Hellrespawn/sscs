@@ -1,6 +1,7 @@
 # TODO More commands: append, prepend, separate check/uncheck, remove, archive
 # TODO Support for done archive
 # TODO Settings support
+# TODO Colorize output
 import argparse
 import logging
 from datetime import datetime
@@ -17,35 +18,36 @@ LOG = logging.getLogger(__name__)
 
 
 class STodo(CLIApp):
-    DEFAULT_PATHS: List[Path] = [Path.home(), sol.LOG_FOLDER.parent / "doc"]
     DEFAULT_NAMES: List[str] = ["todo", "to-do", "todo-test"]
 
     MODES: List[str] = ["todotxt", "sscs"]
 
     def __init__(self, filename: Path = None) -> None:
         super().__init__(self.common_options())
+
         sol.configure_logger(self.settings.verbosity)
 
-        locations: List[Path] = [
-            # path / (name + ".todo.txt")
-            path / (name + ".txt")
-            for path in self.DEFAULT_PATHS
-            for name in self.DEFAULT_NAMES
-        ]
+        try:
+            location = Path.expanduser(Path(self.settings.todofile))
+            self.tasklist = TaskList.from_file(location)
+            self.filename = location
+        except (FileNotFoundError, AttributeError):
+            locations = [
+                self.config_dir / (name + ".txt")
+                for name in self.DEFAULT_NAMES
+            ]
+            for location in locations:
+                try:
+                    self.tasklist = TaskList.from_file(location)
+                    break
+                except FileNotFoundError:
+                    pass
+            else:
+                raise FileNotFoundError(
+                    "Can't find text file! Please set todofile in cfg."
+                ) from None
 
-        if filename:
-            locations = [Path(filename)] + locations
-
-        for location in locations:
-            try:
-                self.tasklist = TaskList.from_file(location)
-                self.filename = location
-                break
-            except FileNotFoundError:
-                pass
-        else:
-            # TODO? Create new file here?
-            raise FileNotFoundError("Unable to find valid file!")
+        self.settings = self.update_settings()
 
         if self.settings.mode == "sscs":
             self.tasklist = SSCS(self.tasklist)
@@ -75,18 +77,46 @@ class STodo(CLIApp):
 
         return common_options
 
+    def update_settings(self):
+        for task in self.tasklist:
+            if not task.keywords.get("header") == "options":
+                continue
+
+            for option in task.keywords:
+                if option == "header":
+                    continue
+
+                if getattr(self.settings, option):
+                    LOG.warning(
+                        "Existing option %s is being clobbered by header.",
+                        option,
+                    )
+                setattr(self.settings, option, task.keywords[option])
+
+        LOG.debug(f"Updated settings:\n{self.settings}")
+        return self.settings
+
     def update_footer(self):
+        # TODO? Use dateutil to parse times dynamically
+        time_fmt = "%Y-%m-%d %H:%M:%S.%f"
+        fmt_length = len(time_fmt.split())
+
         if self.tasklist.footers:
             for task in self.tasklist.footers:
-                msg = " ".join(task.msg.split()[-2:])
+                if task.keywords.get("footer") != "time":
+                    continue
+
+                parts = task.msg.split()
+
+                date = " ".join(parts[-fmt_length:])
+                msg = " ".join(parts[:-fmt_length])
+
                 try:
-                    datetime.strptime(msg, "%Y-%m-%d %H:%M:%S.%f")
+                    datetime.strptime(date, time_fmt)
                 except ValueError:
                     continue
 
-                task.msg = datetime.now().strftime(
-                    "c:footer Generated on %Y-%m-%d %H:%M:%S.%f"
-                )
+                task.msg = " ".join((msg, datetime.now().strftime(time_fmt)))
                 break
 
     def get_index(self) -> int:
@@ -106,10 +136,9 @@ class STodo(CLIApp):
     @Register.argument("index")
     def done(self) -> None:
         index = self.get_index()
+        task = self.tasklist.get(index)
 
-        self.tasklist[index].complete = (
-            "" if self.tasklist[index].complete else "x"
-        )
+        task.complete = "" if task.complete else "x"
 
         self.modified = True
 
@@ -146,5 +175,5 @@ class STodo(CLIApp):
 
 
 def main():
-    sol.configure_logger(3)
+    sol.configure_logger(4)
     STodo().main()
