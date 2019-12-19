@@ -9,7 +9,7 @@ __version_info__ = tuple(
     int(i) for i in __version__.split(".") if i.isdigit()
 )
 
-LOG = logging.getLogger(__name__)
+LOG = logging.getLogger()
 LOG.addHandler(logging.NullHandler())
 
 LOG_FOLDER: Path = Path(__file__).parents[1] / "log"
@@ -61,7 +61,7 @@ def configure_logger(verbosity: int, log_folder: Path = None) -> None:
     if verbosity < 1:
         return
 
-    global LOG_FOLDER
+    global LOG_FOLDER  # pylint: disable=global-statement
     LOG_FOLDER = log_folder or LOG_FOLDER
 
     LOG_FOLDER.mkdir(parents=True, exist_ok=True)
@@ -79,7 +79,9 @@ def configure_logger(verbosity: int, log_folder: Path = None) -> None:
 
     handler.setFormatter(
         logging.Formatter(
-            "{levelname} [{module}:{funcName}]: {message}", style="{"
+            # "{levelname:.1} [{module}:{funcName}]: {message}", style="{"
+            "{levelname:.1} [{name}:{lineno:>04}]: {message}",
+            style="{",
         )
     )
 
