@@ -1,5 +1,5 @@
 import logging
-from collections.abc import MutableMapping
+from collections.abc import MutableSequence
 from pathlib import Path
 from typing import Iterable, List
 
@@ -8,10 +8,10 @@ from .task import Task
 LOG = logging.getLogger(__name__)
 
 
-class TaskList(MutableMapping):
+class TaskList(MutableSequence):
     def __init__(self, iterable=None, filename=None):
-        self.filename: filename
-        self._taskdict = {}
+        self.filename = filename
+        self._container = []
         if iterable:
             for elem in iterable:
                 self.append(elem)
@@ -20,49 +20,39 @@ class TaskList(MutableMapping):
         return self.to_string()
 
     def __delitem__(self, key):
-        self._taskdict.__delitem__(key)
+        self._container.__delitem__(key)
 
     def __getitem__(self, key):
-        return self._taskdict.__getitem__(key)
+        return self._container.__getitem__(key)
 
     def __setitem__(self, key, value):
-        self._taskdict.__setitem__(key, value)
+        self._container.__setitem__(key, value)
 
     def __len__(self):
-        return self._taskdict.__len__()
+        return self._container.__len__()
 
-    def __iter__(self):
-        return (self._taskdict[i] for i in sorted(self._taskdict.keys()))
-
-    def append(self, task):
-        self._taskdict[(len(self._taskdict) + 1)] = task
+    def insert(self, index, value):
+        self._container.insert(index, value)
 
     def appendleft(self, task):
-        self.insert(1, task)
-
-    def extend(self, tasklist):
-        for task in tasklist:
-            self.append(task)
-
-    def insert(self, index, task):
-        if index == 0:
-            raise ValueError("Indices from 1!")
-
-        original_tasks = []
-        for i in range(index, len(self) + 1):
-            original_tasks.append(self.pop(i))
-
-        self.append(task)
-        for original_task in original_tasks:
-            self.append(original_task)
+        self.insert(0, task)
 
     def popright(self):
-        return self._taskdict.pop(len(self._taskdict))
+        return self._container.pop(len(self))
+
+    def get(self, index, default=None):
+        try:
+            return self[index - 1]
+        except IndexError:
+            return default
 
     def sort(self):
-        tasks = sorted(self._taskdict.values())
-        for i, task in enumerate(tasks):
-            self._taskdict[i + 1] = task
+        self._container.sort()
+
+    # def sort(self):
+    #     tasks = sorted(self._taskdict.values())
+    #     for i, task in enumerate(tasks):
+    #         self._taskdict[i + 1] = task
 
     def to_file(self):
         if not self.filename:
@@ -75,15 +65,14 @@ class TaskList(MutableMapping):
         string = ""
 
         if print_index:
-            oom = len(str(len(self._taskdict)))
+            oom = len(str(len(self._container)))
             string = "\n".join(
-                f"{i:>0{oom}}: {self._taskdict[i].to_string(skip_tags)}"
-                for i in sorted(self._taskdict.keys())
+                f"{i + 1:>0{oom}}: {task.to_string(skip_tags)}"
+                for i, task in enumerate(self)
             )
         else:
             string = "\n".join(
-                self._taskdict[i].to_string(skip_tags)
-                for i in sorted(self._taskdict.keys())
+                task.to_string(skip_tags) for i, task in enumerate(self)
             )
 
         return string
@@ -202,29 +191,29 @@ class TaskList(MutableMapping):
 
 class SSCS(TaskList):
     def __init__(
-        self, tasklist: TaskList = None, filename: Path = None
+        self, iterable: Iterable = None, filename: Path = None
     ) -> None:
         super().__init__(filename)
 
         self.headers: List[Task] = []
         self.footers: List[Task] = []
 
-        if tasklist:
-            self.filename = tasklist.filename or self.filename
-            for task in tasklist:
+        if iterable:
+            self.filename = self.filename or getattr(
+                iterable, "filename", None
+            )
+            for task in iterable:
                 self.append(task)
 
-    def append(self, task):
-        index = len(self._taskdict) + 1
+    def append(self, value):
+        if value.keywords.get("header"):
+            self.headers.append(value)
 
-        if task.keywords.get("c") == "header":
-            self.headers.append(task)
-
-        elif task.keywords.get("c") == "footer":
-            self.footers.append(task)
+        elif value.keywords.get("footer"):
+            self.footers.append(value)
 
         else:
-            self._taskdict[index] = task
+            super().append(value)
 
     def to_file(self):
         if not self.filename:
