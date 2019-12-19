@@ -154,9 +154,11 @@ class SSCS:
         self.tasklist, self.errors = self.recurse_project(Path(args.path))
         self.tasklist.sort()
 
-        self.tasklist.appendleft(Task(f"c:header mode:sscs"))
+        self.tasklist.appendleft(Task(f"header:options mode:sscs"))
 
-        self.tasklist.append(Task(f"c:footer Generated on {datetime.now()}"))
+        self.tasklist.append(
+            Task(f"footer:time Generated on {datetime.now()}")
+        )
 
         if self.errors:
             LOG.info("Logging errors:")
