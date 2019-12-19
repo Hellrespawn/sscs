@@ -36,12 +36,6 @@ class Task:
             raise ValueError("Only completed task can have completion date!")
 
         LOG.log(EXTRA_VERBOSE, "Created %r", self)
-        if self.contexts:
-            LOG.log(EXTRA_VERBOSE, "contexts: %r", self.contexts)
-        if self.projects:
-            LOG.log(EXTRA_VERBOSE, "projects: %r", self.projects)
-        if self.keywords:
-            LOG.log(EXTRA_VERBOSE, "keywords: %r", self.keywords)
 
     @property
     def priority(self):
@@ -109,7 +103,7 @@ class Task:
             if getattr(self, param) is not None
         )
 
-        return f"{__name__}.Task({args})"
+        return f"Task({args})"
 
     @classmethod
     def comparison_tuple(cls, task):

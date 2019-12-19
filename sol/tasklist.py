@@ -102,7 +102,7 @@ class TaskList(MutableSequence):
         if not case_sens:
             search = search.lower()
 
-        results = TaskList(filename=self.filename)
+        results = type(self)(filename=self.filename)
 
         for task in self:
             tgt = getattr(task, target)
@@ -120,7 +120,7 @@ class TaskList(MutableSequence):
         if not case_sens:
             search = search.lower()
 
-        results = TaskList(filename=self.filename)
+        results = type(self)(filename=self.filename)
 
         for task in self:
             for item in getattr(task, target):
@@ -141,7 +141,7 @@ class TaskList(MutableSequence):
             skey = skey.lower()
             svalue = svalue.lower()
 
-        results = TaskList(filename=self.filename)
+        results = type(self)(filename=self.filename)
 
         for task in self:
             for key, value in task.keywords.items():
@@ -169,7 +169,7 @@ class TaskList(MutableSequence):
             )
         elif target in ("complete", "msg", "priority"):
             results = self._filter_var(
-                search, target + "s", strict, case_sens
+                search, target, strict, case_sens
             )
         elif target == "keyword":
             key, value = search.split(":")
@@ -193,7 +193,7 @@ class SolTaskList(TaskList):
     def __init__(
         self, iterable: Iterable = None, filename: Path = None
     ) -> None:
-        super().__init__(filename)
+        super().__init__(filename=filename)
 
         self.headers: List[Task] = []
         self.footers: List[Task] = []
