@@ -189,7 +189,7 @@ class TaskList(MutableSequence):
     #     return results
 
 
-class SSCS(TaskList):
+class SolTaskList(TaskList):
     def __init__(
         self, iterable: Iterable = None, filename: Path = None
     ) -> None:

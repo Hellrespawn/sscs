@@ -1,4 +1,5 @@
 # TODO? Try opening gitignore
+# TODO? append instead of overwrite flag
 import argparse
 import logging
 import re
@@ -154,7 +155,7 @@ class SSCS:
         self.tasklist, self.errors = self.recurse_project(Path(args.path))
         self.tasklist.sort()
 
-        self.tasklist.appendleft(Task(f"header:options mode:sscs"))
+        self.tasklist.appendleft(Task(f"header:options mode:sol"))
 
         self.tasklist.append(
             Task(f"footer:time Generated on {datetime.now()}")
