@@ -14,5 +14,8 @@ isort  = "*"
 black = "*"
 mypy = "*"
 
+[packages]
+cliapp-hellrespawn = {editable = true,path = "./../cliapp"}
+
 [requires]
 python_version = "3"

@@ -12,7 +12,8 @@ import sol
 
 from ..task import Task
 from ..tasklist import SSCS, TaskList
-from .cliapp import CLIApp, Register
+from cliapp.cliapp import CLIApp
+from cliapp.register import Register
 
 LOG = logging.getLogger(__name__)
 
