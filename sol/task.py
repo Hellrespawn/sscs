@@ -135,11 +135,11 @@ class Task:
 
     @classmethod
     def from_string(cls, string):
-        complete, msg = cls.get_match(r"(.) (.*)", string)
+        complete, msg = cls.get_match(r"(\S) (.*)", string)
         if complete and complete != "x":
             raise ValueError(f'Unable to parse checkmark in "{string}"!')
 
-        priority, msg = cls.get_match(r"\((.)\) (.*)", msg)
+        priority, msg = cls.get_match(r"\((\S)\) (.*)", msg)
         if priority and priority not in ascii_uppercase:
             raise ValueError(f'Unable to parse priority in "{string}"!')
 
@@ -173,7 +173,7 @@ class Task:
 
     @classmethod
     def get_date(cls, string: str) -> Tuple[Optional[datetime], str]:
-        expr = r"(.{4}-.{2}-.{2}) (.*)"
+        expr = r"(\S{4}-\S{2}-\S{2}) (.*)"
 
         date, string = cls.get_match(expr, string)
 
