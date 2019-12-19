@@ -2,61 +2,106 @@
 # TODO Support for done archive
 # TODO Settings support
 # TODO Colorize output
+# TODO? Do validation on options?
 import argparse
 import logging
 from datetime import datetime
 from pathlib import Path
 from typing import List
+from types import SimpleNamespace
 
+import cliapp
 import sol
-
-from ..task import Task
-from ..tasklist import SSCS, TaskList
 from cliapp.cliapp import CLIApp
 from cliapp.register import Register
+
+from ..task import Task
+from ..tasklist import SolTaskList, TaskList
+
+# from sol import EXTRA_VERBOSE
+
 
 LOG = logging.getLogger(__name__)
 
 
 class STodo(CLIApp):
-    DEFAULT_NAMES: List[str] = ["todo", "to-do", "todo-test"]
-
-    MODES: List[str] = ["todotxt", "sscs"]
+    MODES: List[str] = ["todotxt", "sol"]
 
     def __init__(self, filename: Path = None) -> None:
-        super().__init__(self.common_options())
+        filename, remaining_args = self.handle_early_args()
 
-        sol.configure_logger(self.settings.verbosity)
+        super().__init__()
+
+        self.settings: SimpleNamespace
 
         try:
-            location = Path.expanduser(Path(self.settings.todofile))
-            self.tasklist = TaskList.from_file(location)
-            self.filename = location
-        except (FileNotFoundError, AttributeError):
-            locations = [
-                self.config_dir / (name + ".txt")
-                for name in self.DEFAULT_NAMES
+            if filename is not None:
+                self.filename = Path(filename)
+                if not self.filename.exists():
+                    self.parser.error(
+                        f'Unable to open "{Path(filename)}"!'
+                    )
+            else:
+                self.filename = Path(self.settings.todofile)
+
+            self.tasklist = TaskList.from_file(Path.expanduser(self.filename))
+
+        except (AttributeError, FileNotFoundError):
+            files = [
+                path
+                for path in self.config_dir.iterdir()
+                if path.is_file()
             ]
-            for location in locations:
-                try:
-                    self.tasklist = TaskList.from_file(location)
-                    break
-                except FileNotFoundError:
-                    pass
+            for file in files:
+                if str(file).endswith(".todo.txt"):
+                    try:
+                        self.tasklist = TaskList.from_file(file)
+                        self.filename = file
+                        break
+                    except FileNotFoundError:
+                        pass
+
             else:
                 raise FileNotFoundError(
                     "Can't find text file! Please set todofile in cfg."
                 ) from None
 
-        self.settings = self.update_settings()
+        self.settings = self.read_settings_from_tasklist()
+        self.settings = self.read_settings_from_args(
+            self.parse_args(args_in=remaining_args)
+        )
+        LOG.debug("Final settings:\n%s", self.settings)
 
-        if self.settings.mode == "sscs":
-            self.tasklist = SSCS(self.tasklist)
+        if self.settings.mode == "sol":
+            self.tasklist = SolTaskList(self.tasklist)
 
-        self.modified = False
+        self.modified: bool = False
+
+    def handle_early_args(self):
+        # TODO Catch exception and "play it back" with self.parser
+        # TODO? Integrate with common_options?
+        # TODO? Add first two options to common_parser, parse_known_args, add
+        # TODO? rest of options, pass on to cliapp
+        early_parser = argparse.ArgumentParser()
+        early_parser.add_argument("--todo-file", "-t")
+        early_parser.add_argument(
+            "--verbose",
+            "-v",
+            action="count",
+            default=0,
+            dest="verbosity",
+            help="increase verbosity",
+        )
+
+        args, remaining_args = early_parser.parse_known_args()
+
+        sol.configure_logger(args.verbosity)
+        cliapp.configure_logger(args.verbosity, sol.LOG_FOLDER)
+
+        return args.todo_file, remaining_args
 
     @classmethod
-    def common_options(cls):
+    def get_common_options(cls):
         common_options = argparse.ArgumentParser(add_help=False)
 
         common_options.add_argument(
@@ -73,12 +118,12 @@ class STodo(CLIApp):
         )
 
         common_options.add_argument(
-            "--mode", "-m", choices=cls.MODES, default="todotxt",
+            "--mode", "-m", choices=cls.MODES, default=argparse.SUPPRESS
         )
 
         return common_options
 
-    def update_settings(self):
+    def read_settings_from_tasklist(self):
         for task in self.tasklist:
             if not task.keywords.get("header") == "options":
                 continue
@@ -87,14 +132,16 @@ class STodo(CLIApp):
                 if option == "header":
                     continue
 
-                if getattr(self.settings, option):
-                    LOG.warning(
-                        "Existing option %s is being clobbered by header.",
-                        option,
-                    )
                 setattr(self.settings, option, task.keywords[option])
 
-        LOG.debug(f"Updated settings:\n{self.settings}")
+        LOG.debug(f"Settings after taskfile:\n{self.settings}")
+        return self.settings
+
+    def read_settings_from_args(self, args: argparse.Namespace):
+        for option, value in vars(args).items():
+            # current_option = getattr(self.settings, option, None)
+            setattr(self.settings, option, value)
+
         return self.settings
 
     def update_footer(self):
@@ -163,12 +210,13 @@ class STodo(CLIApp):
 
     @Register.command()
     def print(self) -> None:
+        print(f"{self.filename}:")
         print(self.tasklist.to_string(True, self.settings.skip_tags))
 
     def post_command(self):
         self.print()
 
-        if self.settings.mode == "sscs":
+        if self.settings.mode == "sol":
             self.update_footer()
 
         if self.modified:
@@ -176,5 +224,4 @@ class STodo(CLIApp):
 
 
 def main():
-    sol.configure_logger(4)
     STodo().main()
