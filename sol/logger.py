@@ -84,6 +84,7 @@ def configure_logger(verbosity, logging_path, filename, logging_format):
     LOG.addHandler(handler)
     LOG.setLevel(loglevel)
     LOG.log(
+        loglevel,
         "Log started at %s with level %s",
         datetime.now(),
         logging.getLevelName(loglevel),
