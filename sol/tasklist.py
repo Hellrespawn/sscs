@@ -40,9 +40,15 @@ class TaskList(MutableSequence):
     def popright(self):
         return self._container.pop(len(self))
 
-    def get(self, index, default=None):
+    def safe_get(self, index, default=None):
         try:
             return self[index - 1]
+        except IndexError:
+            return default
+
+    def safe_pop(self, index, default=None):
+        try:
+            return self.pop(index - 1)
         except IndexError:
             return default
 
@@ -60,6 +66,7 @@ class TaskList(MutableSequence):
 
         with open(self.filename, "w") as file:
             file.write(self.to_string())
+            LOG.info("Wrote to %s", file)
 
     def to_string(self, print_index: bool = False, skip_tags: bool = False):
         string = ""
@@ -225,3 +232,4 @@ class SolTaskList(TaskList):
 
         with open(self.filename, "w") as file:
             file.write("\n".join((headers, tasklist, footers)))
+            LOG.info("Wrote to %s", file)
