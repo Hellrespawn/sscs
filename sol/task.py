@@ -7,7 +7,7 @@ from string import ascii_uppercase
 from types import SimpleNamespace
 from typing import Dict, List, Optional, Tuple
 
-from . import EXTRA_VERBOSE
+from .logger import VERBOSE
 
 LOG = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ class Task:
         if self.date_completed and not self.complete:
             raise ValueError("Only completed task can have completion date!")
 
-        LOG.log(EXTRA_VERBOSE, "Created %r", self)
+        LOG.log(VERBOSE, "Created %r", self)
 
     @property
     def priority(self):

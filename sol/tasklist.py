@@ -175,9 +175,7 @@ class TaskList(MutableSequence):
                 search, target + "s", strict, case_sens
             )
         elif target in ("complete", "msg", "priority"):
-            results = self._filter_var(
-                search, target, strict, case_sens
-            )
+            results = self._filter_var(search, target, strict, case_sens)
         elif target == "keyword":
             key, value = search.split(":")
             results = self._filter_keyword(key, value, strict, case_sens)

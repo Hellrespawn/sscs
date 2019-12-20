@@ -13,6 +13,7 @@ from typing import List, Optional
 import sol
 from cliapp.cliapp import CLIApp
 from cliapp.register import Register
+from sol.logger import configure_logger
 
 from ..task import Task
 from ..tasklist import SolTaskList, TaskList
@@ -95,7 +96,9 @@ class STodo(CLIApp):
     def handle_early_args(self):
         early_parser = self.get_common_options(1)
         args, remaining_args = early_parser.parse_known_args()
-        sol.configure_logger(args.verbosity)
+        configure_logger(
+            args.verbosity, sol.LOG_PATH, sol.__name__, sol.LOG_FORMAT
+        )
 
         return args.todo_file, remaining_args
 
@@ -122,8 +125,7 @@ class STodo(CLIApp):
 
         except TypeError:
             self.parser.error(
-                f'Unable to open "{filename}." Check your '
-                "configuration."
+                f'Unable to open "{filename}." Check your ' "configuration."
             )
 
         except AttributeError:
@@ -134,9 +136,7 @@ class STodo(CLIApp):
     def read_tasklist_from_default_locations(self, _):
         tasklist = None
 
-        files = [
-            path for path in self.config_dir.iterdir() if path.is_file()
-        ]
+        files = [path for path in self.config_dir.iterdir() if path.is_file()]
         for filename in files:
             if str(filename).endswith(".todo.txt"):
                 try:
@@ -151,7 +151,7 @@ class STodo(CLIApp):
         read_functions = (
             self.read_tasklist_from_args,
             self.read_tasklist_from_settings,
-            self.read_tasklist_from_default_locations
+            self.read_tasklist_from_default_locations,
         )
 
         tasklist = None
@@ -325,7 +325,8 @@ class STodo(CLIApp):
     @Register.command("search")
     @Register.argument("query")
     @Register.argument(
-        "--by", '-by',
+        "--by",
+        "-by",
         choices=["project", "context", "keyword", "message", "msg"],
         dest="target",
         default="message",
