@@ -244,6 +244,18 @@ class STodo(CLIApp):
         print(query)
         return default
 
+    def print_header(self, tasklist):
+        strings = (
+            f"{tasklist.filename}:",
+            "mode: " + self.get_setting("mode")
+        )
+
+        width, _ = self.get_terminal_size()
+        for string in strings:
+            width -= len(string)
+
+        print((width // (len(strings) - 1) * " ").join(strings))
+
     def write_to_file(self):
         self.tasklist.to_file()
 
@@ -373,7 +385,7 @@ class STodo(CLIApp):
             # TODO Open archive here, check for correct class
             pass
 
-        print(f"{tasklist.filename}:")
+        self.print_header(tasklist)
         print(tasklist.to_string(True, self.get_setting("skip_tags")))
         self.print_list = None
 
