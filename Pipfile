@@ -16,6 +16,7 @@ mypy = "*"
 
 [packages]
 cliapp-hellrespawn = {editable = true,path = "./../cliapp"}
+sol-hellrespawn = {editable = true,path = "."}
 
 [requires]
 python_version = "3"
