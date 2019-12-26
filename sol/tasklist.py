@@ -1,7 +1,7 @@
 import logging
 from collections.abc import MutableSequence
 from pathlib import Path
-from typing import Iterable, List
+from typing import Iterable, List, Union
 
 from .task import Task
 
@@ -103,13 +103,13 @@ class TaskList(MutableSequence):
 
         return tasklist
 
-    def _filter_var(
+    def _filter_str(
         self, search: str, target: str, strict: bool, case_sens: bool,
-    ) -> "TaskList":
+    ) -> List[Task]:
         if not case_sens:
             search = search.lower()
 
-        results = type(self)(filename=self.filename)
+        results = []
 
         for task in self:
             tgt = getattr(task, target)
@@ -121,13 +121,27 @@ class TaskList(MutableSequence):
 
         return results
 
+    def _filter_bool(
+        self, search: bool, target: str,
+    ) -> List[Task]:
+
+        results = []
+
+        for task in self:
+            tgt = getattr(task, target)
+
+            if tgt == search:
+                results.append(task)
+
+        return results
+
     def _filter_iterable(
         self, search: str, target: str, strict: bool, case_sens: bool,
-    ) -> "TaskList":
+    ) -> List[Task]:
         if not case_sens:
             search = search.lower()
 
-        results = type(self)(filename=self.filename)
+        results = []
 
         for task in self:
             for item in getattr(task, target):
@@ -142,13 +156,21 @@ class TaskList(MutableSequence):
         return results
 
     def _filter_keyword(
-        self, skey: str, svalue: str, strict: bool, case_sens: bool,
-    ) -> "TaskList":
+        self,
+        search: str,
+        strict: bool,
+        case_sens: bool,
+    ) -> List[Task]:
         if not case_sens:
-            skey = skey.lower()
-            svalue = svalue.lower()
+            search = search.lower()
 
-        results = type(self)(filename=self.filename)
+        try:
+            search_key, search_value = search.split(":")
+            single_value = False
+        except ValueError:
+            single_value = True
+
+        results = []
 
         for task in self:
             for key, value in task.keywords.items():
@@ -156,42 +178,67 @@ class TaskList(MutableSequence):
                     key = key.lower()
                     value = value.lower()
 
-                if (strict and skey == key and svalue == value) or (
-                    not strict and skey in key and svalue in value
-                ):
-                    results.append(task)
+                if single_value and strict:
+                    if search == key or search == value:
+                        results.append(task)
+
+                elif single_value and not strict:
+                    if search in key or search in value:
+                        results.append(task)
+
+                elif not single_value and strict:
+                    if search_key == key and search_value == value:
+                        results.append(task)
+
+                elif not single_value and not strict:
+                    if search_key in key and search_value in value:
+                        results.append(task)
+
+                else:
+                    raise RuntimeError("Fundamental error in boolean logic.")
 
         return results
 
     def filter_by(
         self,
-        search: str,
+        search: Union[bool, str],
         target: str,
         strict: bool = False,
         case_sens: bool = False,
     ) -> "TaskList":
         if target in ("context", "project"):
+            assert isinstance(search, str)
             results = self._filter_iterable(
                 search, target + "s", strict, case_sens
             )
-        elif target in ("complete", "msg", "priority"):
-            results = self._filter_var(search, target, strict, case_sens)
+
+        elif target in ("contexts", "projects"):
+            assert isinstance(search, str)
+            results = self._filter_iterable(search, target, strict, case_sens)
+
+        elif target in ("msg", "priority"):
+            assert isinstance(search, str)
+            results = self._filter_str(search, target, strict, case_sens)
+
+        elif target == "complete":
+            assert isinstance(search, bool)
+            if strict or case_sens:
+                raise ValueError(
+                    "strict and case-sensitive don't make "
+                    "sense for when filtering booleans!"
+                )
+            results = self._filter_bool(search, target)
+
         elif target == "keyword":
-            key, value = search.split(":")
-            results = self._filter_keyword(key, value, strict, case_sens)
+            assert isinstance(search, str)
+            results = self._filter_keyword(search, strict, case_sens)
 
         # elif target == "date":
         #     pass
         else:
             raise ValueError(f'Unable to filter by "{target}"')
 
-        return results
-
-    # def order(self, reverse: bool = False) -> "TaskList":
-    #     results = TaskList(
-    #         sorted(self, reverse=reverse), filename=self.filename
-    #     )
-    #     return results
+        return type(self)(results, filename=self.filename)
 
 
 class SolTaskList(TaskList):

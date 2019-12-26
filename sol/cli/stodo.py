@@ -247,7 +247,7 @@ class STodo(CLIApp):
     def print_header(self, tasklist):
         strings = (
             f"{tasklist.filename}:",
-            "mode: " + self.get_setting("mode")
+            "mode: " + self.get_setting("mode"),
         )
 
         width, _ = self.get_terminal_size()
@@ -268,9 +268,9 @@ class STodo(CLIApp):
         index = self.get_index()
         task = self.tasklist.safe_get(index)
 
-        if task.complete == "x":
+        if task.complete:
             self.parser.error("Task is already completed!")
-        task.complete = "x"
+        task.complete = True
 
         self.modified = True
 
@@ -280,9 +280,9 @@ class STodo(CLIApp):
         index = self.get_index()
         task = self.tasklist.safe_get(index)
 
-        if task.complete == "":
+        if not task.complete:
             self.parser.error("Task is already not completed!")
-        task.complete = ""
+        task.complete = False
 
         self.modified = True
 
@@ -292,7 +292,7 @@ class STodo(CLIApp):
         index = self.get_index()
         task = self.tasklist.safe_get(index)
 
-        task.complete = "" if task.complete else "x"
+        task.complete = False if task.complete else True
 
         self.modified = True
 
@@ -360,10 +360,10 @@ class STodo(CLIApp):
 
     @Register.command()
     def archive(self):
-        archive = self.tasklist.filter_by("x", "complete", strict=True)
+        archive = self.tasklist.filter_by(True, "complete")
         for task in archive:
             self.tasklist.remove(task)
-            task.complete = ""
+            task.complete = False
 
         archive_file = self.get_setting("archive_file")
         if not archive_file:

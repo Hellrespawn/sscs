@@ -15,13 +15,13 @@ LOG = logging.getLogger(__name__)
 @total_ordering
 class Task:
     DEFAULT = SimpleNamespace(
-        complete="", priority="", date_created=None, date_completed=None
+        complete=False, priority="", date_created=None, date_completed=None
     )
 
     def __init__(
         self,
         msg: str,
-        complete: str = None,
+        complete: bool = None,
         priority: str = None,
         date_created: datetime = None,
         date_completed: datetime = None,
@@ -66,7 +66,7 @@ class Task:
         parts = []
 
         if self.complete:
-            parts.append(self.complete)
+            parts.append("x")
 
         if self.priority:
             parts.append(f"({self.priority})")
@@ -108,8 +108,10 @@ class Task:
     @classmethod
     def comparison_tuple(cls, task):
         return (
-            (task.complete != cls.DEFAULT.complete, task.complete),
-            (task.priority == cls.DEFAULT.priority, task.priority),
+            task.complete != cls.DEFAULT.complete,
+            task.complete,
+            task.priority == cls.DEFAULT.priority,
+            task.priority,
             (
                 task.date_created == cls.DEFAULT.date_created,
                 task.date_created,
@@ -155,7 +157,7 @@ class Task:
                 f'Unable to parse completion date in "{string}"!'
             )
 
-        return cls(msg, complete, priority, date_created, date_completed)
+        return cls(msg, bool(complete), priority, date_created, date_completed)
 
     @staticmethod
     def get_match(expr: str, string: str) -> Tuple[Optional[str], str]:
