@@ -9,5 +9,4 @@ __version_info__ = tuple(
 LOG = logging.getLogger(__name__)
 LOG.addHandler(logging.NullHandler())
 
-LOG_FORMAT = "{levelname:.1} [{name}:{lineno:>04}]: {message}"
 LOG_PATH = Path(__file__).parents[1] / "log"

@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import DefaultDict, List, Tuple
 
 import sol
-from sol.logger import configure_logger
+from loggingextra import configure_logger
 from sol.task import Task
 from sol.tasklist import TaskList
 
@@ -152,8 +152,7 @@ class SSCS:
         args = self.parse_args()
 
         configure_logger(
-            args.verbosity, sol.LOG_PATH, sol.__name__, sol.LOG_FORMAT
-        )
+            args.verbosity, sol.LOG_PATH, sol.__name__)
 
         self.tasklist, self.errors = self.recurse_project(Path(args.path))
         self.tasklist.sort()

@@ -7,7 +7,7 @@ from string import ascii_uppercase
 from types import SimpleNamespace
 from typing import Dict, List, Optional, Tuple
 
-from .logger import VERBOSE
+from loggingextra import VERBOSE
 
 LOG = logging.getLogger(__name__)
 

@@ -13,7 +13,7 @@ from typing import List, Optional
 import sol
 from cliapp.cliapp import CLIApp
 from cliapp.register import Register
-from sol.logger import configure_logger
+from loggingextra import configure_logger
 
 from ..task import Task
 from ..tasklist import SolTaskList, TaskList
@@ -97,8 +97,7 @@ class STodo(CLIApp):
         early_parser = self.get_common_options(1)
         args, remaining_args = early_parser.parse_known_args()
         configure_logger(
-            args.verbosity, sol.LOG_PATH, sol.__name__, sol.LOG_FORMAT
-        )
+            args.verbosity, sol.LOG_PATH, sol.__name__)
 
         return args.todo_file, remaining_args
 
@@ -384,7 +383,7 @@ class STodo(CLIApp):
         if self.get_setting("archive", bool):
             # TODO Open archive here, check for correct class
             pass
-
+        assert tasklist is not None
         self.print_header(tasklist)
         print(tasklist.to_string(True, self.get_setting("skip_tags")))
         self.print_list = None
