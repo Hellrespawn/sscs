@@ -157,7 +157,9 @@ class Task:
                 f'Unable to parse completion date in "{string}"!'
             )
 
-        return cls(msg, bool(complete), priority, date_created, date_completed)
+        return cls(
+            msg, bool(complete), priority, date_created, date_completed
+        )
 
     @staticmethod
     def get_match(expr: str, string: str) -> Tuple[Optional[str], str]:

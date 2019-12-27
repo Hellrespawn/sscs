@@ -120,9 +120,7 @@ class TaskList(MutableSequence):
 
         return results
 
-    def _filter_bool(
-        self, search: bool, target: str,
-    ) -> List[Task]:
+    def _filter_bool(self, search: bool, target: str,) -> List[Task]:
 
         results = []
 
@@ -155,10 +153,7 @@ class TaskList(MutableSequence):
         return results
 
     def _filter_keyword(
-        self,
-        search: str,
-        strict: bool,
-        case_sens: bool,
+        self, search: str, strict: bool, case_sens: bool,
     ) -> List[Task]:
         if not case_sens:
             search = search.lower()

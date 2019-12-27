@@ -151,8 +151,7 @@ class SSCS:
     def main(self) -> None:
         args = self.parse_args()
 
-        configure_logger(
-            args.verbosity, sol.LOG_PATH, sol.__name__)
+        configure_logger(args.verbosity, sol.LOG_PATH, sol.__name__)
 
         self.tasklist, self.errors = self.recurse_project(Path(args.path))
         self.tasklist.sort()
