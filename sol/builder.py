@@ -8,15 +8,15 @@ LOG = logging.getLogger(__name__)
 class Attr:
     def __init__(self, name: str, mutually_exclusive: int = 0) -> None:
         self.name = name
-        self.mutually_exclusive = self.mu_ex = mutually_exclusive
+        self.mutually_exclusive = self.mutex = mutually_exclusive
 
         self.value = False
 
     def __eq__(self, other):
-        return (self.name, self.mu_ex) == (other.name, other.mu_ex)
+        return (self.name, self.mutex) == (other.name, other.mutex)
 
     def __repr__(self):
-        return f"Attr({self.name!r}, {self.mu_ex!r}, {self.value!r})"
+        return f"Attr({self.name!r}, {self.mutex!r}, {self.value!r})"
 
 
 class Builder:
@@ -27,32 +27,32 @@ class Builder:
 
         for name, param in signature(self.function).parameters.items():
             if param.kind == Parameter.KEYWORD_ONLY:
-                mu_ex_str = name[-2:]
-                if mu_ex_str.startswith("_") and mu_ex_str[-1:].isdigit():
-                    mu_ex = int(mu_ex_str[1])
+                mutex_str = name[-2:]
+                if mutex_str.startswith("_") and mutex_str[-1:].isdigit():
+                    mutex = int(mutex_str[1])
                     name = name[:-2]
                 else:
-                    mu_ex = 0
+                    mutex = 0
 
-                self.attrs.append(Attr(name, int(mu_ex)))
+                self.attrs.append(Attr(name, int(mutex)))
 
     @property
-    def mu_ex_groups(self):
+    def mutex_groups(self):
         groups = {}
 
         for attr in self.attrs:
-            if attr.mu_ex > 0 and attr.value:
-                groups[attr.mu_ex] = attr.name
+            if attr.mutex > 0 and attr.value:
+                groups[attr.mutex] = attr.name
 
         return groups
 
     def __getattr__(self, search: str) -> "Builder":
         for attr in self.attrs:
             if search == attr.name:
-                if attr.mu_ex in self.mu_ex_groups:
+                if attr.mutex in self.mutex_groups:
                     raise ValueError(
                         f'"{search}" is mutually exclusive with '
-                        f'"{self.mu_ex_groups[attr.mu_ex]}"'
+                        f'"{self.mutex_groups[attr.mutex]}"'
                     )
 
                 attr.value = True
@@ -68,8 +68,8 @@ class Builder:
         )
         for attr in self.attrs:
             name = attr.name
-            if attr.mu_ex > 0:
-                name += f"_{attr.mu_ex}"
+            if attr.mutex > 0:
+                name += f"_{attr.mutex}"
 
             kwargs[name] = attr.value
 

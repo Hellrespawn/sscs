@@ -48,6 +48,23 @@ class STodo(CLIApp):
         self.modified: bool = False
         self.print_list: Optional[TaskList] = self.tasklist
 
+    @property
+    def tasklist_archive(self):
+        archive_file = self.get_setting("archive_file")
+        return archive_file or self._tasklist_archive
+
+    @property
+    def tasklist(self):
+        return self._tasklist
+
+    @tasklist.setter
+    def tasklist(self, value: Path):
+        self._tasklist = value
+        name = str(self.tasklist.filename.name).replace(
+            ".txt", ".archive.txt"
+        )
+        self._tasklist_archive = self.tasklist.filename.parent / name
+
     #################################################
     #    Parsing arguments and reading settings     #
     #################################################
