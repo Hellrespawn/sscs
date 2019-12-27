@@ -42,15 +42,16 @@ class STodo(CLIApp):
         )
         LOG.debug("Final settings:\n%s", self.settings)
 
-        if self.get_setting("mode") == "sol":
+        if self.settings.get("mode") == "sol":
             self.tasklist = SolTaskList(self.tasklist)
 
-        self.modified: bool = False
+        self.modified_list: bool = False
+        self.modified_archive: bool = False
         self.print_list: Optional[TaskList] = self.tasklist
 
     @property
     def tasklist_archive(self):
-        archive_file = self.get_setting("archive_file")
+        archive_file = self.settings.get("archive_file")
         return archive_file or self._tasklist_archive
 
     @property
@@ -58,20 +59,37 @@ class STodo(CLIApp):
         return self._tasklist
 
     @tasklist.setter
-    def tasklist(self, value: Path):
+    def tasklist(self, value: TaskList):
         self._tasklist = value
+
         name = str(self.tasklist.filename.name).replace(
             ".txt", ".archive.txt"
         )
-        self._tasklist_archive = self.tasklist.filename.parent / name
+        try:
+            self._tasklist_archive = type(self._tasklist).from_file(
+                filename=self.tasklist.filename.parent / name
+            )
+        except FileNotFoundError:
+            self._tasklist_archive = type(self._tasklist)(
+                filename=self.tasklist.filename.parent / name
+            )
+            if self.settings.get("mode") == "sol":
+                self.update_footer(self._tasklist_archive)
 
     #################################################
     #    Parsing arguments and reading settings     #
     #################################################
 
-    # Overrides cliapp
+    def handle_early_args(self):
+        early_parser = self.create_common_parser(1)
+        args, remaining_args = early_parser.parse_known_args()
+        configure_logger(
+            args.verbosity, sol.LOG_PATH, sol.__name__)
+
+        return args.todo_file, remaining_args
+
     @classmethod
-    def get_common_options(cls, stage=2):  # pylint: disable=arguments-differ
+    def create_common_parser(cls, stage=2):  # pylint: disable=arguments-differ
         common_options = argparse.ArgumentParser(add_help=False)
 
         if stage >= 1:
@@ -96,27 +114,6 @@ class STodo(CLIApp):
             )
 
         return common_options
-
-    def run_command(self, name: str = None):
-        if name is None:
-            return super().run_command()
-
-        mode = self.get_setting("mode")
-        for title in (f"{name}_{mode}", name):
-            try:
-                return super().run_command(title)
-            except ValueError:
-                pass
-
-        raise ValueError(f'Unable to run command "{name}"')
-
-    def handle_early_args(self):
-        early_parser = self.get_common_options(1)
-        args, remaining_args = early_parser.parse_known_args()
-        configure_logger(
-            args.verbosity, sol.LOG_PATH, sol.__name__)
-
-        return args.todo_file, remaining_args
 
     def read_tasklist_from_args(self, filename):
         tasklist = None
@@ -191,7 +188,7 @@ class STodo(CLIApp):
                 if option == "header":
                     continue
 
-                self.set_setting(option, task.keywords[option])
+                self.settings[option] = task.keywords[option]
 
         LOG.debug(f"Settings after taskfile:\n{self.settings}")
         return self.settings
@@ -199,44 +196,42 @@ class STodo(CLIApp):
     def merge_settings_from_args(self, args: argparse.Namespace):
         for option, value in vars(args).items():
             # current_option = getattr(self.settings, option, None)
-            self.set_setting(option, value)
+            self.settings[option] = value
 
         return self.settings
+
+    def run_command(self, name: str = None):
+        if name is None:
+            return super().run_command()
+
+        mode = self.settings.get("mode")
+        for title in (f"{name}_{mode}", name):
+            try:
+                return super().run_command(title)
+            except ValueError:
+                pass
+
+        raise ValueError(f'Unable to run command "{name}"')
 
     ###############################
     #    Support for commands     #
     ###############################
-    def update_footer(self):
+    @staticmethod
+    def update_footer(tasklist):
         # TODO? Use dateutil to parse times dynamically
         time_fmt = "%Y-%m-%d %H:%M:%S.%f"
-        fmt_length = len(time_fmt.split())
+        msg = f"footer:time Generated on {datetime.now().strftime(time_fmt)}"
 
-        for task in self.tasklist.footers:
-            if task.keywords.get("footer") != "time":
-                continue
+        for task in tasklist.footers:
+            if task.keywords.get("footer") == "time":
+                task.msg = msg
+                break
 
-            parts = task.msg.split()
-
-            date = " ".join(parts[-fmt_length:])
-            msg = " ".join(parts[:-fmt_length])
-
-            try:
-                datetime.strptime(date, time_fmt)
-            except ValueError:
-                continue
-
-            task.msg = " ".join((msg, datetime.now().strftime(time_fmt)))
-            break
         else:
-            self.tasklist.append(
-                Task(
-                    "footer:time Generated on "
-                    f"{datetime.now().strftime(time_fmt)}"
-                )
-            )
+            tasklist.append(Task(msg))
 
     def get_index(self) -> int:
-        index = int(self.get_setting("index"))
+        index = int(self.settings.get("index"))
 
         if not 1 <= index <= len(self.tasklist):
             self.parser.error(
@@ -244,16 +239,6 @@ class STodo(CLIApp):
             )
 
         return index
-
-    def get_archive_filename(self):
-        archive_file = self.get_setting("archive_file")
-        if not archive_file:
-            name = str(self.tasklist.filename.name).replace(
-                ".txt", ".archive.txt"
-            )
-            archive_file = self.tasklist.filename.parent / name
-
-        return archive_file
 
     def prompt(self, query, default=False):
         # TODO Implement prompt()
@@ -263,7 +248,7 @@ class STodo(CLIApp):
     def print_header(self, tasklist):
         strings = (
             f"{tasklist.filename}:",
-            "mode: " + self.get_setting("mode"),
+            "mode: " + self.settings.get("mode"),
         )
 
         width, _ = self.get_terminal_size()
@@ -273,7 +258,12 @@ class STodo(CLIApp):
         print((width // (len(strings) - 1) * " ").join(strings))
 
     def write_to_file(self):
-        self.tasklist.to_file()
+        # TODO? Delete file if empty?
+        if self.modified_list:
+            self.tasklist.to_file()
+
+        if self.modified_archive:
+            self.tasklist_archive.to_file()
 
     ###################
     #    Commands     #
@@ -288,7 +278,7 @@ class STodo(CLIApp):
             self.parser.error("Task is already completed!")
         task.complete = True
 
-        self.modified = True
+        self.modified_list = True
 
     @Register.command("uncheck", "untick")
     @Register.argument("index")
@@ -300,7 +290,7 @@ class STodo(CLIApp):
             self.parser.error("Task is already not completed!")
         task.complete = False
 
-        self.modified = True
+        self.modified_list = True
 
     @Register.command()
     @Register.argument("index")
@@ -310,28 +300,28 @@ class STodo(CLIApp):
 
         task.complete = False if task.complete else True
 
-        self.modified = True
+        self.modified_list = True
 
     @Register.command()
     @Register.argument("task")
     @Register.argument("--date", "-d", action="store_true")
     @Register.argument("--index", "-i", default=None)
     def add(self):
-        task = Task.from_string(self.get_setting("task"))
-        if self.get_setting("date"):
+        task = Task.from_string(self.settings.get("task"))
+        if self.settings.get("date"):
             task.date_created = datetime.now()
         print(task)
         print(repr(task))
 
         # TODO? Prompt or require flag before appending?
 
-        if self.get_setting("index") is not None:
+        if self.settings.get("index") is not None:
             self.tasklist.insert(self.get_index() - 1, task)
 
         else:
             self.tasklist.append(task)
 
-        self.modified = True
+        self.modified_list = True
 
     @Register.command()
     @Register.argument("index")
@@ -340,7 +330,7 @@ class STodo(CLIApp):
         task = self.tasklist.safe_pop(index)
 
         if self.prompt(f'Removing "{task.to_string()}"\nAre you sure?'):
-            self.modified = True
+            self.modified_list = True
 
         else:
             self.tasklist.insert(index, task)
@@ -348,7 +338,7 @@ class STodo(CLIApp):
     @Register.command("order")
     def sort(self) -> None:
         self.tasklist.sort()
-        self.modified = True
+        self.modified_list = True
 
     @Register.command("search")
     @Register.argument("query")
@@ -363,12 +353,12 @@ class STodo(CLIApp):
     @Register.argument("--case-sensitive", "-cs", action="store_true")
     def filter(self):
         # TODO Highlight searches
-        query = self.get_setting("query")
-        target = self.get_setting("target")
+        query = self.settings.get("query")
+        target = self.settings.get("target")
         if target == "message":
             target = "msg"
-        strict = self.get_setting("strict", bool)
-        case_sens = self.get_setting("case_sensitive", bool)
+        strict = self.settings.get("strict")
+        case_sens = self.settings.get("case_sensitive")
 
         self.print_list = self.tasklist.filter_by(
             query, target, strict, case_sens
@@ -376,47 +366,48 @@ class STodo(CLIApp):
 
     @Register.command()
     def archive(self):
-        archive = self.tasklist.filter_by(True, "complete")
-        for task in archive:
-            self.tasklist.remove(task)
-            task.complete = False
+        for task in self.tasklist:
+            if task.complete:
+                self.tasklist.remove(task)
+                task.complete = False
+                self.tasklist_archive.append(task)
 
-        archive_file = self.get_setting("archive_file")
-        if not archive_file:
-            name = str(archive.filename.name).replace(".txt", ".archive.txt")
-            archive_file = archive.filename.parent / name
+        self.modified_list = True
+        self.modified_archive = True
 
-        archive.filename = self.get_archive_filename()
-        archive.headers = self.tasklist.headers
-        archive.footers = self.tasklist.footers
-        archive.to_file()
+    @Register.command()
+    def unarchive(self):
+        for task in self.tasklist_archive:
+            self.tasklist_archive.remove(task)
+            self.tasklist.append(task)
 
-        self.modified = True
+        self.modified_list = True
+        self.modified_archive = True
 
     @Register.command()
     @Register.argument("-a", "--archive", action="store_true")
     def print(self) -> None:
-        tasklist = self.print_list
-        if self.get_setting("archive", bool):
-            # TODO Open archive here, check for correct class
-            pass
-        assert tasklist is not None
-        self.print_header(tasklist)
-        print(tasklist.to_string(True, self.get_setting("skip_tags")))
-        self.print_list = None
+        if self.settings.get("archive"):
+            self.print_list = self.tasklist_archive
+
+        if self.print_list:
+            self.print_header(self.print_list)
+            print(self.print_list.to_string(True, self.settings.get("skip_tags")))
+
+            # Disable auto-print
+            self.print_list = None
 
     def post_command(self):
         if self.print_list:
             self.print()
 
-        if self.get_setting("mode") == "sol":
-            self.update_footer()
+        if self.settings.get("mode") == "sol":
+            self.update_footer(self.tasklist)
 
-        if self.get_setting("keep_sorted", bool) and self.tasklist.sort():
-            self.modified = True
+        if self.settings.get("keep_sorted") and self.tasklist.sort():
+            self.modified_list = True
 
-        if self.modified:
-            self.write_to_file()
+        self.write_to_file()
 
 
 def main():

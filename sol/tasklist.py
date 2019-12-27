@@ -86,7 +86,6 @@ class TaskList(MutableSequence):
 
     @classmethod
     def from_file(cls, filename: Path) -> "TaskList":
-
         with open(filename, "r") as file:
             tasklist = cls.from_iterable(file)
             tasklist.filename = filename
@@ -256,6 +255,9 @@ class SolTaskList(TaskList):
             )
             for task in iterable:
                 self.append(task)
+
+        else:
+            self.append(Task("header:options mode:sol"))
 
     def append(self, value):
         if value.keywords.get("header"):
