@@ -1,12 +1,15 @@
 import argparse
 import configparser
 import logging
+import sys
 from pathlib import Path
+from typing import Any, Dict, List, Tuple
 
 import sol
 from loggingextra import VERBOSE, configure_logger
 
-from ..task import Task
+from ...task import Task
+from .helpers import Command, modifies, no_default
 
 LOG = logging.getLogger(__name__)
 
@@ -14,21 +17,42 @@ LOG = logging.getLogger(__name__)
 class STodo:
     DEFAULT_DIR = Path.expanduser(Path("~/.sol"))
 
-    def __init__(self):
+    COMMAND_LIST = [
+        Command(["default", ""]),
+        Command(["do", "done"], dest="do_task"),
+        Command(["undo"]),
+        Command(["listarchive"]),
+    ]
+
+    def __init__(self) -> None:
         self.parser = self.create_parser()
-        self.args = self.parser.parse_args()
+        try:
+            self.args = self.parser.parse_args()
 
-        configure_logger(self.args.verbosity, sol.LOG_PATH, sol.__name__)
-        LOG.debug(f"Command line args:\n{self.args}")
+            configure_logger(self.args.verbosity, sol.LOG_PATH, sol.__name__)
+            LOG.debug(f"Command line args:\n{self.args}")
 
-        self.settings = self.read_settings()
-        LOG.debug(f"Settings:\n{self.settings}")
+            self.settings = self.read_settings()
+            LOG.debug(f"Settings:\n{self.settings}")
 
-        self.todo, self.done = self.read_lists_from_file()
+            self.todo, self.done = self.read_lists_from_file()
 
-        self.run_default = True
+            self.run_default = True
+            self.modified_todo = False
+            self.modified_done = False
 
-    def create_parser(self):
+            self.name = Path(sys.argv[0]).name
+
+        except Exception as exc:
+            self.error(exc)
+
+    def error(self, exc):
+        if LOG.isEnabledFor(logging.DEBUG):
+            raise exc from None
+
+        self.parser.error(exc)
+
+    def create_parser(self) -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser()
 
         parser.add_argument(
@@ -82,10 +106,15 @@ class STodo:
         #     "--plain", "-p", action="store_true", help="disable color mode.",
         # )
 
+        command_choices = []
+        for command in self.COMMAND_LIST:
+            if command.name != "default":
+                command_choices.extend(command.aliases)
+
         parser.add_argument(
             "command",
-            # choices=[],
-            default="default",
+            choices=sorted(command_choices),
+            default=None,
             nargs="?",
             help="command to run",
         )
@@ -99,9 +128,8 @@ class STodo:
 
         return parser
 
-    def read_settings(self):
+    def read_settings(self) -> Dict[str, Any]:
         cfg = configparser.ConfigParser()
-        settings = {}
 
         cfg_file = (
             Path(self.args.config)
@@ -113,20 +141,24 @@ class STodo:
             with open(Path.expanduser(cfg_file)) as file:
                 cfg.read_string("\n".join([f"[dummy]"] + file.readlines()))
 
-            settings = self.parse_settings(cfg["dummy"])
+            settings = self.parse_settings(dict(cfg["dummy"]))
 
         except FileNotFoundError:
             if self.args.config:
-                self.parser.error(
+                raise ValueError(
                     f'Unable to read "{self.args.config}" as config!'
                 )
 
+            settings = self.parse_settings({})
+
         return settings
 
-    def parse_settings(self, cfg):
+    def parse_settings(self, cfg: Dict[str, Any]) -> Dict[str, Any]:
         settings = {}
 
-        todo_dir = Path.expanduser(Path(cfg.pop("todo-dir", self.DEFAULT_DIR)))
+        todo_dir = Path.expanduser(
+            Path(cfg.pop("todo-dir", self.DEFAULT_DIR))
+        )
         LOG.log(VERBOSE, "todo_dir: %s", todo_dir)
 
         settings["todo-file"] = Path.expanduser(
@@ -157,7 +189,7 @@ class STodo:
 
         return settings
 
-    def read_lists_from_file(self):
+    def read_lists_from_file(self) -> Tuple[List[Task], List[Task]]:
         todo = []
 
         try:
@@ -178,39 +210,95 @@ class STodo:
 
         return todo, done
 
-    def handle_command(self):
-        command = self.args.command
-        arguments = self.args.arguments
-
-    def print_todo(self, print_indices):
+    def print_todo(self, print_indices: bool) -> None:
         oom = len(str(len(self.todo)))
         print(self.settings["todo-file"], ":", sep="")
         for i, task in enumerate(self.todo):
             index = f"{i + 1:>0{oom}}:" if print_indices else ""
             print(index, task)
 
-    def print_done(self, print_indices):
+    def print_done(self, print_indices: bool) -> None:
         oom = len(str(len(self.done)))
         print(self.settings["done-file"], ":", sep="")
         for i, task in enumerate(self.done):
             index = f"{i + 1:>0{oom}}:" if print_indices else ""
             print(index, task)
 
-    def default(self):
+    def validate_index(self, index):
+        if not self.todo:
+            raise ValueError("No tasks to mark done!")
+
+        try:
+            index = int(index)
+        except ValueError:
+            raise TypeError("Indices must be integers!")
+
+        if 1 <= index < len(self.todo):
+            return index - 1
+
+        raise ValueError(f"Indices must be between 1 and {len(self.todo)}!")
+
+    def handle_command(self) -> None:
+        command = self.args.command
+        arguments = self.args.arguments
+
+        if command is not None:
+            for cmd in self.COMMAND_LIST:
+                if cmd.name == command:
+                    result = cmd
+                    break
+
+            else:
+                raise NotImplementedError(f'"{command}" is not implemented!')
+
+            # arguments = self.validate_arguments(result, arguments)
+            attr = result.dest or result.name
+            getattr(self, attr, None)(arguments)
+
+    def default(self) -> None:
         self.print_todo(True)
 
-    def main(self):
-        LOG.info(
-            "Files are located at:\n%s\n%s",
-            self.settings["todo-file"],
-            self.settings["done-file"],
-        )
+    @modifies("todo")
+    def do_task(self, arguments):
+        if len(arguments) == 0:
+            raise TypeError(
+                f'"{self.name} do" requires at least one integer as argument!'
+            )
 
-        self.handle_command()
+        valid_indices = []
+        for i in arguments:
+            valid_indices.append(self.validate_index(i))
 
-        if self.run_default:
-            self.default()
+        for i in valid_indices:
+            self.todo[i].complete = not self.todo[i].complete
+
+    @no_default
+    def listarchive(self, _):
+        self.print_done(True)
+        self.run_default = False
+
+    def main(self) -> None:
+        try:
+            LOG.info(
+                "Files are located at:\n%s\n%s",
+                self.settings["todo-file"],
+                self.settings["done-file"],
+            )
+
+            self.handle_command()
+
+            if self.run_default:
+                self.default()
+
+            if self.modified_todo:
+                print("Modified todo")
+
+            if self.modified_done:
+                print("Modified done")
+
+        except Exception as exc:
+            self.error(exc)
 
 
-def main():
+def main() -> None:
     STodo().main()
