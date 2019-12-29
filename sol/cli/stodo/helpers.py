@@ -12,6 +12,7 @@ VALID_TARGETS = ("todo", "done")
 def register(*aliases):
     def decorator(method):
         COMMAND_LIST.append(Command(aliases, dest=method.__name__))
+        COMMAND_LIST.sort()
         return method
 
     return decorator

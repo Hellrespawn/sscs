@@ -3,8 +3,8 @@
 import argparse
 import configparser
 import logging
-import sys
 import re
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -122,24 +122,9 @@ class STodo:
         #     "--plain", "-p", action="store_true", help="disable color mode.",
         # )
 
-        command_choices: List[str] = []
-        for command in COMMAND_LIST:
-            if "default" not in command.aliases:
-                command_choices.extend(command.aliases)
-
         parser.add_argument(
-            "command",
-            choices=sorted(command_choices),
-            default=None,
-            nargs="?",
-            help="command to run",
+            "command", default=None, nargs="?", help="command to run",
         )
-
-        # parser.add_argument(
-        #     "arguments",
-        #     nargs=argparse.REMAINDER,
-        #     help="arguments for command",
-        # )
 
         return parser
 
@@ -239,6 +224,9 @@ class STodo:
                 filename.write(task.to_string() + "\n")
 
     def print(self, tasklist, print_indices=True, name=""):
+        hide_contexts = self.args.hide_contexts % 2 == 1
+        hide_projects = self.args.hide_projects % 2 == 1
+
         if tasklist:
             oom = len(str(len(tasklist)))
 
@@ -247,7 +235,7 @@ class STodo:
 
             for i, task in enumerate(tasklist):
                 index = f"{i + 1:>0{oom}}:" if print_indices else ""
-                print(index, task)
+                print(index, task.to_string(hide_contexts, hide_projects))
 
     def filter_list(self, source_list, arguments):
         terms = []
@@ -313,7 +301,13 @@ class STodo:
                     break
 
             else:
-                raise NotImplementedError(f'"{command}" is not implemented!')
+                string = f'No such command "{command}", valid commands:'
+                for command in COMMAND_LIST:
+                    string += f"\n\t{command.aliases[0]}"
+                    if len(command.aliases) > 1:
+                        string += " (" + ", ".join(command.aliases[1:]) + ")"
+
+                raise NotImplementedError(string)
 
             # arguments = self.validate_arguments(result, arguments)
             getattr(self, result.dest, None)(arguments)
@@ -446,7 +440,9 @@ class STodo:
             # for task in tasklist:
             #     print(expr.match(task.priority))
 
-            tasklist = [task for task in tasklist if expr.match(task.priority)]
+            tasklist = [
+                task for task in tasklist if expr.match(task.priority)
+            ]
 
         self.print(tasklist, name=self.settings["todo-file"])
 
@@ -501,7 +497,12 @@ class STodo:
     @register("replace")
     def replace(self, arguments):
         index = self.validate_indices("priority", [arguments[0]])[0]
-        self.todo[index] = Task.from_string(" ".join(arguments[1:]))
+
+        task = Task.from_string(" ".join(arguments[1:]))
+        if self.args.prepend_date:
+            task.date_created = datetime.now()
+
+        self.todo[index] = task
 
 
 def main() -> None:

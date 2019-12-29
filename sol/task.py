@@ -93,7 +93,12 @@ class Task:
     def contains_term(self, term, sep="/"):
         return any(subterm in self for subterm in term.split(sep))
 
-    def to_string(self, skip_tags: bool = False):
+    def to_string(
+        self,
+        hide_contexts: bool = False,
+        hide_projects: bool = False,
+        hide_keywords: bool = False,
+    ):
         parts = []
 
         if self.complete:
@@ -110,10 +115,17 @@ class Task:
 
         msg = self.msg
 
-        if skip_tags:
+        if hide_contexts:
+            for context in self.contexts:
+                msg = msg.replace(f"@{context}", "").replace("  ", " ", 1)
+
+        if hide_projects:
+            for project in self.projects:
+                msg = msg.replace(f"+{project}", "").replace("  ", " ", 1)
+
+        if hide_keywords:
             for key, value in self.keywords.items():
-                msg = msg.replace(f"{key}:{value}", "")
-                msg = msg.replace("  ", " ", 1)
+                msg = msg.replace(f"{key}:{value}", "").replace("  ", " ", 1)
 
         parts.append(" ".join(msg.split()))
 
