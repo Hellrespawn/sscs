@@ -3,7 +3,6 @@ import logging
 import re
 from datetime import datetime
 from functools import total_ordering
-from string import ascii_uppercase
 from types import SimpleNamespace
 from typing import Dict, List, Optional, Tuple
 
@@ -59,8 +58,40 @@ class Task:
     def keywords(self):
         return self.get_keywords(self.msg)
 
+    def __contains__(self, value):
+        return value in self.to_string()
+
+    def __eq__(self, other):
+        return self.comparison_tuple(self) == self.comparison_tuple(other)
+
+    def __hash__(self):
+        return hash(self.comparison_tuple(self))
+
+    def __lt__(self, other):
+        return self.comparison_tuple(self) < self.comparison_tuple(other)
+
+    def __repr__(self):
+        params = (
+            "msg",
+            "complete",
+            "priority",
+            "date_created",
+            "date_completed",
+        )
+
+        args = ", ".join(
+            f"{param}={getattr(self, param)!r}"
+            for param in params
+            if getattr(self, param) is not None
+        )
+
+        return f"Task({args})"
+
     def __str__(self):
         return self.to_string()
+
+    def contains_term(self, term, sep="/"):
+        return any(subterm in self for subterm in term.split(sep))
 
     def to_string(self, skip_tags: bool = False):
         parts = []
@@ -88,23 +119,6 @@ class Task:
 
         return " ".join(parts)
 
-    def __repr__(self):
-        params = (
-            "msg",
-            "complete",
-            "priority",
-            "date_created",
-            "date_completed",
-        )
-
-        args = ", ".join(
-            f"{param}={getattr(self, param)!r}"
-            for param in params
-            if getattr(self, param) is not None
-        )
-
-        return f"Task({args})"
-
     @classmethod
     def comparison_tuple(cls, task):
         return (
@@ -123,12 +137,6 @@ class Task:
             task.msg,
         )
 
-    def __eq__(self, other):
-        return self.comparison_tuple(self) == self.comparison_tuple(other)
-
-    def __lt__(self, other):
-        return self.comparison_tuple(self) < self.comparison_tuple(other)
-
     @classmethod
     def from_string(cls, string):
         complete, msg = cls.get_match(r"(\S) (.*)", string)
@@ -136,8 +144,6 @@ class Task:
             raise ValueError(f'Unable to parse checkmark in "{string}"!')
 
         priority, msg = cls.get_match(r"\((\S)\) (.*)", msg)
-        if priority and priority not in ascii_uppercase:
-            raise ValueError(f'Unable to parse priority in "{string}"!')
 
         if complete:
             try:

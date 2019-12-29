@@ -1,7 +1,11 @@
+# TODO Case sensitivity in search
+# TODO Add more logging
 import argparse
 import configparser
 import logging
 import sys
+import re
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -9,7 +13,7 @@ import sol
 from loggingextra import VERBOSE, configure_logger
 
 from ...task import Task
-from .helpers import Command, modifies, no_default
+from .helpers import COMMAND_LIST, modifies, no_default, register, requires
 
 LOG = logging.getLogger(__name__)
 
@@ -17,17 +21,11 @@ LOG = logging.getLogger(__name__)
 class STodo:
     DEFAULT_DIR = Path.expanduser(Path("~/.sol"))
 
-    COMMAND_LIST = [
-        Command(["default", ""]),
-        Command(["do", "done"], dest="do_task"),
-        Command(["undo"]),
-        Command(["listarchive"]),
-    ]
-
     def __init__(self) -> None:
         self.parser = self.create_parser()
         try:
-            self.args = self.parser.parse_args()
+            self.args, arguments_in = self.parser.parse_known_args()
+            self.args.arguments = arguments_in
 
             configure_logger(self.args.verbosity, sol.LOG_PATH, sol.__name__)
             LOG.debug(f"Command line args:\n{self.args}")
@@ -43,7 +41,7 @@ class STodo:
 
             self.name = Path(sys.argv[0]).name
 
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-except
             self.error(exc)
 
     def error(self, exc):
@@ -52,6 +50,9 @@ class STodo:
 
         self.parser.error(exc)
 
+    ######################################
+    #    Parse command-line arguments    #
+    ######################################
     def create_parser(self) -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser()
 
@@ -97,6 +98,21 @@ class STodo:
             help="forces actions without confirmation.",
         )
 
+        date_mutex = parser.add_mutually_exclusive_group()
+        date_mutex.add_argument(
+            "-t",
+            action="store_true",
+            dest="prepend_date",
+            help="prepend current date to added tasks.",
+        )
+        date_mutex.add_argument(
+            "-T",
+            action="store_false",
+            default=False,
+            dest="prepend_date",
+            help="don't prepend current date to added tasks.",
+        )
+
         # color_mutex = parser.add_mutually_exclusive_group()
         # color_mutex.add_argument(
         #     "--color", "-c", action="store_true", help="enable color mode.",
@@ -106,9 +122,9 @@ class STodo:
         #     "--plain", "-p", action="store_true", help="disable color mode.",
         # )
 
-        command_choices = []
-        for command in self.COMMAND_LIST:
-            if command.name != "default":
+        command_choices: List[str] = []
+        for command in COMMAND_LIST:
+            if "default" not in command.aliases:
                 command_choices.extend(command.aliases)
 
         parser.add_argument(
@@ -119,14 +135,17 @@ class STodo:
             help="command to run",
         )
 
-        parser.add_argument(
-            "arguments",
-            # choices=[],
-            nargs=argparse.REMAINDER,
-            help="arguments for command",
-        )
+        # parser.add_argument(
+        #     "arguments",
+        #     nargs=argparse.REMAINDER,
+        #     help="arguments for command",
+        # )
 
         return parser
+
+    #################################
+    #    Read settings from file    #
+    #################################
 
     def read_settings(self) -> Dict[str, Any]:
         cfg = configparser.ConfigParser()
@@ -210,30 +229,75 @@ class STodo:
 
         return todo, done
 
-    def print_todo(self, print_indices: bool) -> None:
-        oom = len(str(len(self.todo)))
-        print(self.settings["todo-file"], ":", sep="")
-        for i, task in enumerate(self.todo):
-            index = f"{i + 1:>0{oom}}:" if print_indices else ""
-            print(index, task)
+    ##################################
+    #    Supporting functionality    #
+    ##################################
 
-    def print_done(self, print_indices: bool) -> None:
-        oom = len(str(len(self.done)))
-        print(self.settings["done-file"], ":", sep="")
-        for i, task in enumerate(self.done):
-            index = f"{i + 1:>0{oom}}:" if print_indices else ""
-            print(index, task)
+    def write(self, target):
+        with open(self.settings[f"{target}-file"], "w") as filename:
+            for task in getattr(self, target):
+                filename.write(task.to_string() + "\n")
+
+    def print(self, tasklist, print_indices=True, name=""):
+        if tasklist:
+            oom = len(str(len(tasklist)))
+
+            if name:
+                print(f"{name}:")
+
+            for i, task in enumerate(tasklist):
+                index = f"{i + 1:>0{oom}}:" if print_indices else ""
+                print(index, task)
+
+    def filter_list(self, source_list, arguments):
+        terms = []
+        negative_terms = []
+
+        for term in arguments:
+            if term.startswith("/"):
+                negative_terms.append(term[1:])
+            else:
+                terms.append(term)
+
+        tasklist = []
+
+        for task in source_list:
+            if any(task.contains_term(term) for term in negative_terms):
+                continue
+
+            if all(task.contains_term(term) for term in terms):
+                tasklist.append(task)
+
+        return tasklist
+
+    def list_tags(self, target, arguments):
+        tasklist = self.filter_list(self.todo, arguments)
+
+        tags = set()
+        for task in tasklist:
+            for tag in getattr(task, target):
+                tags.add(tag)
+
+        print(f"{target.capitalize()} in {self.settings['todo-file']}:")
+        for tag in sorted(tags):
+            print(f"\t{tag}")
+
+    def validate_indices(self, func_name, indices):
+        if len(indices) == 0:
+            raise TypeError(
+                f'"{self.name} {func_name}" requires at least '
+                "one integer as argument!"
+            )
+
+        return [self.validate_index(i) for i in indices]
 
     def validate_index(self, index):
-        if not self.todo:
-            raise ValueError("No tasks to mark done!")
-
         try:
             index = int(index)
         except ValueError:
             raise TypeError("Indices must be integers!")
 
-        if 1 <= index < len(self.todo):
+        if 1 <= index <= len(self.todo):
             return index - 1
 
         raise ValueError(f"Indices must be between 1 and {len(self.todo)}!")
@@ -243,8 +307,8 @@ class STodo:
         arguments = self.args.arguments
 
         if command is not None:
-            for cmd in self.COMMAND_LIST:
-                if cmd.name == command:
+            for cmd in COMMAND_LIST:
+                if command in cmd.aliases:
                     result = cmd
                     break
 
@@ -252,30 +316,7 @@ class STodo:
                 raise NotImplementedError(f'"{command}" is not implemented!')
 
             # arguments = self.validate_arguments(result, arguments)
-            attr = result.dest or result.name
-            getattr(self, attr, None)(arguments)
-
-    def default(self) -> None:
-        self.print_todo(True)
-
-    @modifies("todo")
-    def do_task(self, arguments):
-        if len(arguments) == 0:
-            raise TypeError(
-                f'"{self.name} do" requires at least one integer as argument!'
-            )
-
-        valid_indices = []
-        for i in arguments:
-            valid_indices.append(self.validate_index(i))
-
-        for i in valid_indices:
-            self.todo[i].complete = not self.todo[i].complete
-
-    @no_default
-    def listarchive(self, _):
-        self.print_done(True)
-        self.run_default = False
+            getattr(self, result.dest, None)(arguments)
 
     def main(self) -> None:
         try:
@@ -291,13 +332,176 @@ class STodo:
                 self.default()
 
             if self.modified_todo:
-                print("Modified todo")
+                self.write("todo")
 
             if self.modified_done:
-                print("Modified done")
+                self.write("done")
 
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-except
             self.error(exc)
+
+    ######################
+    #    CLI commands    #
+    ######################
+
+    def default(self) -> None:
+        self.list_todo([])
+
+    @modifies("todo")
+    @requires("todo", num_args=2, arbitrary=True)
+    @register("append")
+    def append(self, arguments):
+        index = self.validate_indices("append", [arguments[0]])[0]
+
+        self.todo[index].msg += " " + " ".join(arguments[1:])
+
+    @modifies("todo", "done")
+    @no_default
+    @register("archive")
+    def archive(self, _):
+        completed = [task for task in self.todo if task.complete]
+        for task in completed:
+            self.todo.remove(task)
+            self.done.append(task)
+
+        self.list_all([])
+
+    @modifies("todo")
+    @register("add")
+    def add_task(self, arguments):
+        task = Task.from_string(" ".join(arguments))
+        if self.args.prepend_date:
+            task.date_created = datetime.now()
+
+        self.todo.append(task)
+
+    @modifies("todo")
+    @register("deduplicate", "dedup")
+    def deduplicate(self, _):
+        new_list = []
+
+        for task in self.todo:
+            if task not in new_list:
+                new_list.append(task)
+
+        self.todo = new_list
+
+    @modifies("todo")
+    @requires("todo", num_args=1, arbitrary=True)
+    @register("delete", "del", "remove", "rm")
+    def delete(self, arguments):
+        valid_indices = self.validate_indices("delete", arguments)
+
+        for i in sorted(valid_indices, reverse=True):
+            task = self.todo.pop(i)
+            print(f"Removing task:\n    {task}")
+
+        print()
+
+    @modifies("todo")
+    @requires("todo", num_args=1, arbitrary=True)
+    @register("deprioritize", "depri", "dp")
+    def deprioritize(self, arguments):
+        valid_indices = self.validate_indices("deprioritize", arguments)
+        for index in valid_indices:
+            self.todo[index].priority = ""
+
+    @modifies("todo")
+    @register("do", "done")
+    @requires("todo", num_args=1, arbitrary=True)
+    def do_task(self, arguments):
+        valid_indices = self.validate_indices("do", arguments)
+
+        for i in valid_indices:
+            self.todo[i].complete = not self.todo[i].complete
+
+    @no_default
+    @register("listall")
+    @requires(num_args=0, arbitrary=True)
+    def list_all(self, arguments):
+        self.list_todo(arguments)
+        self.list_done(arguments)
+
+    @no_default
+    @register("listcontexts", "listcon", "lsc")
+    @requires(num_args=0, arbitrary=True)
+    def list_contexts(self, arguments):
+        self.list_tags("contexts", arguments)
+
+    @no_default
+    @register("listpriority", "listpri", "lsp")
+    @requires(num_args=0, arbitrary=True)
+    def list_priority(self, arguments):
+        tasklist = self.todo
+
+        if len(arguments) == 0:
+            tasklist = [task for task in tasklist if task.priority]
+
+        else:
+            if len(arguments) > 1:
+                tasklist = self.filter_list(self.todo, arguments[1:])
+
+            expr = re.compile(f"[{arguments[0].upper()}]")
+
+            # for task in tasklist:
+            #     print(expr.match(task.priority))
+
+            tasklist = [task for task in tasklist if expr.match(task.priority)]
+
+        self.print(tasklist, name=self.settings["todo-file"])
+
+    @no_default
+    @register("listprojects", "listproj", "lsprj")
+    @requires(num_args=0, arbitrary=True)
+    def list_projects(self, arguments):
+        self.list_tags("projects", arguments)
+
+    @no_default
+    @register("listdone")
+    @requires(num_args=0, arbitrary=True)
+    def list_done(self, arguments):
+        if not arguments:
+            self.print(self.done, name=self.settings["done-file"])
+
+        else:
+            tasklist = self.filter_list(self.done, arguments)
+            self.print(tasklist, name=self.settings["done-file"])
+
+    @no_default
+    @register("list")
+    @requires(num_args=0, arbitrary=True)
+    def list_todo(self, arguments):
+        if not arguments:
+            self.print(self.todo, name=self.settings["todo-file"])
+
+        else:
+            tasklist = self.filter_list(self.todo, arguments)
+            self.print(tasklist, name=self.settings["todo-file"])
+
+    @modifies("todo")
+    @requires("todo", num_args=2, arbitrary=True)
+    @register("prepend")
+    def prepend(self, arguments):
+        index = self.validate_indices("prepend", [arguments[0]])[0]
+        task = self.todo[index]
+
+        task.msg = " ".join(arguments[1:]) + " " + task.msg
+
+    @modifies("todo")
+    @requires("todo", num_args=2, arbitrary=True)
+    @register("priority", "pri")
+    def priority(self, arguments):
+        index = self.validate_indices("priority", [arguments[0]])[0]
+        priority = arguments[1].upper()
+
+        self.todo[index].priority = priority
+
+    @modifies("todo")
+    @requires("todo", num_args=2, arbitrary=True)
+    @register("replace")
+    def replace(self, arguments):
+        index = self.validate_indices("priority", [arguments[0]])[0]
+        self.todo[index] = Task.from_string(" ".join(arguments[1:]))
 
 
 def main() -> None:
