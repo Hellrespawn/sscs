@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import sol
-from loggingextra import VERBOSE, configure_logger
+from hrshelpers.loggingextra import VERBOSE, configure_logger
 
 from ...task import Task
 from .helpers import COMMAND_LIST, modifies, no_default, register, requires

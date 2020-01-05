@@ -15,8 +15,7 @@ black = "*"
 mypy = "*"
 
 [packages]
-cliapp-hellrespawn = {editable = true,path = "./../cliapp"}
-loggingextra-hellrespawn = {editable = true,path = "./../loggingextra"}
+hrshelpers-hellrespawn = {editable = true,path = "./../hrshelpers"}
 sol-hellrespawn = {editable = true,path = "."}
 
 [requires]

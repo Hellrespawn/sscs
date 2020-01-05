@@ -11,9 +11,8 @@ from pathlib import Path
 from typing import DefaultDict, List, Tuple
 
 import sol
-from loggingextra import configure_logger
+from hrshelpers.loggingextra import configure_logger
 from sol.task import Task
-from sol.tasklist import TaskList
 
 LOG = logging.getLogger(__name__)
 
@@ -32,7 +31,7 @@ class SSCS:
     def __init__(self, *, whitelist: List[str] = None,) -> None:
         self.whitelist = (whitelist or []) + self.WHITELIST
 
-        self.tasklist = TaskList()
+        self.tasklist: List[Task] = []
         self.errors: dict = {}
 
     @classmethod
@@ -63,13 +62,13 @@ class SSCS:
     @classmethod
     def parse_source_file(
         cls, filename: Path
-    ) -> Tuple[TaskList, DefaultDict[str, List[int]]]:
+    ) -> Tuple[List, DefaultDict[str, List[int]]]:
         categories = "|".join(cls.CATEGORIES).replace("?", "\\?")
         expr = re.compile(
             r".*?(?P<category>" + categories + r")\s*(?P<msg>.*)"
         )
 
-        tasklist = TaskList()
+        tasklist = []
         errors: DefaultDict[str, List[int]] = defaultdict(list)
 
         with open(filename, "r") as file:
@@ -93,10 +92,10 @@ class SSCS:
 
     def recurse_project(
         self, path: Path, i: int = 0
-    ) -> Tuple[TaskList, DefaultDict[str, List[int]]]:
+    ) -> Tuple[List, DefaultDict[str, List[int]]]:
         path = Path(path)
 
-        tasklist = TaskList()
+        tasklist = []
         errors: DefaultDict[str, List[int]] = defaultdict(list)
 
         for filename in path.iterdir():
@@ -156,7 +155,7 @@ class SSCS:
         self.tasklist, self.errors = self.recurse_project(Path(args.path))
         self.tasklist.sort()
 
-        self.tasklist.appendleft(Task(f"header:options mode:sol"))
+        self.tasklist = [Task(f"header:options mode:sol")] + self.tasklist
 
         self.tasklist.append(
             Task(f"footer:time Generated on {datetime.now()}")
@@ -174,7 +173,8 @@ class SSCS:
                     # pylint: enable=logging-not-lazy
 
         if args.output is None:
-            print(self.tasklist.to_string(print_index=True))
+            for i, task in enumerate(self.tasklist):
+                print(f"{i + 1}: {task.to_string()}")
 
         else:
             output = Path(args.output)

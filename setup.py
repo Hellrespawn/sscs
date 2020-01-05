@@ -23,7 +23,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url=f"https://github.com/Hellrespawn/{NAME}",
     packages=setuptools.find_packages(),
-    install_requires=["cliapp-Hellrespawn"],
+    install_requires=["hrshelpers-Hellrespawn"],
     classifiers=["Programming Language :: Python :: 3"],
     entry_points={
         "console_scripts": [

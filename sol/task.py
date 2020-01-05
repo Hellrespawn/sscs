@@ -6,7 +6,7 @@ from functools import total_ordering
 from types import SimpleNamespace
 from typing import Dict, List, Optional, Tuple
 
-from loggingextra import VERBOSE
+from hrshelpers.loggingextra import VERBOSE
 
 LOG = logging.getLogger(__name__)
 
