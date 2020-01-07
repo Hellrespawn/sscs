@@ -1,10 +1,10 @@
 # TODO Case sensitivity in search
 # TODO Add more logging
 import argparse
-import configparser
 import logging
 import re
 import sys
+import toml
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -133,29 +133,13 @@ class STodo:
     #################################
 
     def read_settings(self) -> Dict[str, Any]:
-        cfg = configparser.ConfigParser()
-
         cfg_file = (
             Path(self.args.config)
             if self.args.config
             else self.DEFAULT_DIR / "config"
         )
 
-        try:
-            with open(Path.expanduser(cfg_file)) as file:
-                cfg.read_string("\n".join([f"[dummy]"] + file.readlines()))
-
-            settings = self.parse_settings(dict(cfg["dummy"]))
-
-        except FileNotFoundError:
-            if self.args.config:
-                raise ValueError(
-                    f'Unable to read "{self.args.config}" as config!'
-                )
-
-            settings = self.parse_settings({})
-
-        return settings
+        return self.parse_settings(toml.load(cfg_file, dict))
 
     def parse_settings(self, cfg: Dict[str, Any]) -> Dict[str, Any]:
         settings = {}
