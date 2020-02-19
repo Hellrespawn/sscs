@@ -4,10 +4,11 @@ import argparse
 import logging
 import re
 import sys
-import toml
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+
+import toml
 
 import sol
 from hrshelpers.loggingextra import VERBOSE, configure_logger

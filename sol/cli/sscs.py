@@ -132,10 +132,19 @@ class SSCS:
             default=0,
         )
 
-        parser.add_argument("--output", "-o", help="Optional output file")
+        parser.add_argument("--output", "-o", help="Optional output file.")
 
         parser.add_argument(
-            "--force", "-f", action="store_true", help="Overwrite output file"
+            "--force",
+            "-f",
+            action="store_true",
+            help="Overwrite output file.",
+        )
+        parser.add_argument(
+            "--line-numbers",
+            "-ln",
+            action="store_true",
+            help="Include line numbers in output.",
         )
 
         parser.add_argument("path", nargs="?", default=Path.cwd())
@@ -174,7 +183,10 @@ class SSCS:
 
         if args.output is None:
             for i, task in enumerate(self.tasklist):
-                print(f"{i + 1}: {task.to_string()}")
+                string = task.to_string()
+                if args.line_numbers:
+                    string = f"{i + 1}: {string}"
+                print(string)
 
         else:
             output = Path(args.output)
