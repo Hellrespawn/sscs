@@ -195,7 +195,9 @@ class SSCS:
 
             output.parent.mkdir(parents=True, exist_ok=True)
             with open(output, "w") as file:
-                file.write(str(self.tasklist))
+                file.write(
+                    "\n".join(task.to_string() for task in self.tasklist)
+                )
 
             print(f"Wrote to {output!s}")
 
