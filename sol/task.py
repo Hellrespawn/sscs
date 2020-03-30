@@ -25,7 +25,10 @@ class Task:
         date_created: datetime = None,
         date_completed: datetime = None,
     ) -> None:
-        self.msg = msg
+        self.msg = msg.strip()
+        if not self.msg:
+            raise ValueError("Task message must not be empty.")
+
         self.complete = complete or self.DEFAULT.complete
         self.priority = priority or self.DEFAULT.priority
         self.date_created = date_created or self.DEFAULT.date_created
@@ -152,6 +155,7 @@ class Task:
     @classmethod
     def from_string(cls, string):
         complete, msg = cls.get_match(r"(\S) (.*)", string)
+
         if complete and complete != "x":
             raise ValueError(f'Unable to parse checkmark in "{string}"!')
 
@@ -189,7 +193,7 @@ class Task:
 
     @classmethod
     def get_date(cls, string: str) -> Tuple[Optional[datetime], str]:
-        expr = r"(\S{4}-\S{2}-\S{2}) (.*)"
+        expr = r"([0-9]{4})-([0-9]{2})-([0-9]{2}) (.*)"
 
         date, string = cls.get_match(expr, string)
 

@@ -1,3 +1,4 @@
+# TODO Implement sort (as flag for search?)
 # TODO Case sensitivity in search
 # TODO Add more logging
 import argparse
@@ -214,9 +215,10 @@ class STodo:
     ##################################
 
     def write(self, target):
-        with open(self.settings[f"{target}-file"], "w") as filename:
-            for task in getattr(self, target):
-                filename.write(task.to_string() + "\n")
+        with open(self.settings[f"{target}-file"], "w") as file:
+            file.write(
+                "\n".join(str(task) for task in getattr(self, target)).strip()
+            )
 
     def print(self, tasklist, print_indices=True, name=""):
         hide_contexts = self.args.hide_contexts % 2 == 1
