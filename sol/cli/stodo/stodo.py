@@ -12,6 +12,7 @@ import toml
 
 import sol
 from hrshelpers.logging import VERBOSE, configure_logger
+from hrshelpers.cli import verbosity_from_args
 
 from ...task import Task
 from .helpers import COMMAND_LIST, modifies, no_default, register, requires
@@ -23,12 +24,14 @@ class STodo:
     DEFAULT_DIR = Path.expanduser(Path("~/.sol"))
 
     def __init__(self) -> None:
+        verbosity = verbosity_from_args()
+        configure_logger(verbosity, sol.LOG_PATH, sol.__name__)
+
         self.parser = self.create_parser()
         try:
             self.args, arguments_in = self.parser.parse_known_args()
             self.args.arguments = arguments_in
 
-            configure_logger(self.args.verbosity, sol.LOG_PATH, sol.__name__)
             LOG.debug(f"Command line args:\n{self.args}")
 
             self.settings = self.read_settings()
@@ -139,8 +142,15 @@ class STodo:
             if self.args.config
             else self.DEFAULT_DIR / "config"
         )
+        try:
+            settings = toml.load(cfg_file, dict)
+        except FileNotFoundError:
+            Path.mkdir(self.DEFAULT_DIR, parents=True, exist_ok=True)
+            settings = {"todo-dir": "~/.sol"}
+            with open(self.DEFAULT_DIR / "config", "w") as file:
+                toml.dump(settings, file)
 
-        return self.parse_settings(toml.load(cfg_file, dict))
+        return self.parse_settings(settings)  # type: ignore
 
     def parse_settings(self, cfg: Dict[str, Any]) -> Dict[str, Any]:
         settings = {}
@@ -222,7 +232,8 @@ class STodo:
                 index = f"{i + 1:>0{oom}}:" if print_indices else ""
                 print(index, task.to_string(hide_contexts, hide_projects))
 
-    def filter_list(self, source_list, arguments):
+    @staticmethod
+    def filter_list(source_list, arguments):
         terms = []
         negative_terms = []
 
@@ -282,20 +293,13 @@ class STodo:
         if command is not None:
             for cmd in COMMAND_LIST:
                 if command in cmd.aliases:
-                    result = cmd
+                    getattr(self, cmd.dest, None)(arguments)
                     break
 
             else:
-                string = f'No such command "{command}", valid commands:'
-                for command in COMMAND_LIST:
-                    string += f"\n\t{command.aliases[0]}"
-                    if len(command.aliases) > 1:
-                        string += " (" + ", ".join(command.aliases[1:]) + ")"
-
-                raise NotImplementedError(string)
-
-            # arguments = self.validate_arguments(result, arguments)
-            getattr(self, result.dest, None)(arguments)
+                self.args.command = "list"
+                self.args.arguments = [command] + arguments
+                self.handle_command()
 
     def main(self) -> None:
         try:
