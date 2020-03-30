@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import DefaultDict, List, Tuple
 
 import sol
-from hrshelpers.loggingextra import configure_logger
+from hrshelpers.logging import configure_logger
 from sol.task import Task
 
 LOG = logging.getLogger(__name__)

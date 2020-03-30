@@ -5,7 +5,7 @@ import blessed
 
 import sol
 from hrshelpers.cli import verbosity_from_args
-from hrshelpers.loggingextra import configure_logger
+from hrshelpers.logging import configure_logger
 
 
 class STodo:
