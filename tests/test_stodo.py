@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import mock_open, patch
 
 import sol
-from logging import configure_logger
+from hrshelpers.logging import configure_logger
 from sol.cli.stodo.stodo import STodo
 from sol.task import Task
 
