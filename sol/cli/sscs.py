@@ -25,6 +25,7 @@ class SSCS:
     MAX_SIZE = 1024 ** 2  # 1 MB
 
     WHITELIST = [".py", ".ebnf", ".md", ".txt"]
+    BLACKLIST = ["todo.txt"]
 
     SKIP = "sscs: skip"
 
@@ -93,8 +94,6 @@ class SSCS:
     def recurse_project(
         self, path: Path, i: int = 0
     ) -> Tuple[List, DefaultDict[str, List[int]]]:
-        path = Path(path)
-
         tasklist = []
         errors: DefaultDict[str, List[int]] = defaultdict(list)
 
@@ -105,6 +104,9 @@ class SSCS:
                 errors.update(new_errors)
 
             else:
+                if filename.name in self.BLACKLIST:
+                    continue
+
                 if getsize(filename) > self.MAX_SIZE:
                     LOG.debug(f"{filename} is too big!")
                     continue
