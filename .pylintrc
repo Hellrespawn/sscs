@@ -1,7 +1,11 @@
 [MASTER]
-disable=bad-continuation,
-        fixme,
-        logging-format-interpolation,
+disable=fixme,
         missing-module-docstring,
         missing-class-docstring,
         missing-function-docstring,
+        bad-continuation,
+        global-statement,
+        too-few-public-methods,
+        too-many-public-methods,
+        too-few-instance-attributes,
+        too-many-instance-attributes

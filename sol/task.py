@@ -96,7 +96,7 @@ class Task:
     def contains_term(self, term, sep="/"):
         return any(subterm in self for subterm in term.split(sep))
 
-    def to_string(
+    def to_string(  # noqa: C901 too complex
         self,
         hide_contexts: bool = False,
         hide_projects: bool = False,

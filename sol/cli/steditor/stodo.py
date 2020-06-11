@@ -2,7 +2,6 @@ from contextlib import ExitStack
 from typing import List
 
 import blessed
-
 import sol
 from hrshelpers.cli import verbosity_from_args
 from hrshelpers.logging import configure_logger

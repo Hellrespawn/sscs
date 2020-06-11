@@ -1,5 +1,14 @@
 [flake8]
-ignore = E203
+; Deprecated:
+; Line break occurred before a binary operator (W503)
+;
+; black disregards this when slicing with a variable:
+; Whitespace before ':' (E203)
+;
+; Disabled for assignment expressions:
+; Missing whitespace after ',', ';', or ':' (E231)
+; Multiple statements on one line (colon) (E701)
+ignore = W503,E231,E701,E203
 exclude =
     .git,
     __pycache__

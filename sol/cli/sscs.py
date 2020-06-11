@@ -1,4 +1,3 @@
-# TODO? Try opening gitignore
 # TODO? append instead of overwrite flag
 import argparse
 import logging
@@ -18,8 +17,8 @@ LOG = logging.getLogger(__name__)
 
 
 class SSCS:
-    CATEGORIES = ("IDEA", "TODO?", "TODO", "FIXME")  # sscs: skip
-    PRIORITIES = ("C", "C", "B", "A")
+    CATEGORIES = ("UPSTREAM", "IDEA", "TODO?", "TODO", "FIXME")  # sscs: skip
+    PRIORITIES = ("D", "C", "C", "B", "A")
 
     MAX_RECURSION = 4
     MAX_SIZE = 1024 ** 2  # 1 MB
@@ -76,6 +75,9 @@ class SSCS:
             try:
                 for i, line in enumerate(file):
                     if cls.SKIP in line:
+                        if i == 0:
+                            return [], defaultdict(list)
+
                         continue
 
                     match = expr.match(line.strip())
@@ -108,7 +110,7 @@ class SSCS:
                     continue
 
                 if getsize(filename) > self.MAX_SIZE:
-                    LOG.debug(f"{filename} is too big!")
+                    LOG.debug("%s is too big!", filename)
                     continue
 
                 for item in self.whitelist:
@@ -122,7 +124,8 @@ class SSCS:
 
         return tasklist, errors
 
-    def parse_args(self) -> argparse.Namespace:
+    @staticmethod
+    def parse_args() -> argparse.Namespace:
         parser = argparse.ArgumentParser()
 
         parser.add_argument(
@@ -134,17 +137,8 @@ class SSCS:
             default=0,
         )
 
-        parser.add_argument("--output", "-o", help="Optional output file.")
-
         parser.add_argument(
-            "--force",
-            "-f",
-            action="store_true",
-            help="Overwrite output file.",
-        )
-        parser.add_argument(
-            "--line-numbers",
-            "-ln",
+            "--enumerate",
             action="store_true",
             help="Include line numbers in output.",
         )
@@ -183,25 +177,11 @@ class SSCS:
                     )
                     # pylint: enable=logging-not-lazy
 
-        if args.output is None:
-            for i, task in enumerate(self.tasklist):
-                string = task.to_string()
-                if args.line_numbers:
-                    string = f"{i + 1}: {string}"
-                print(string)
-
-        else:
-            output = Path(args.output)
-            if output.exists() and not args.force:
-                sys.exit(f"{output} exists! Did you mean to use --force?")
-
-            output.parent.mkdir(parents=True, exist_ok=True)
-            with open(output, "w") as file:
-                file.write(
-                    "\n".join(task.to_string() for task in self.tasklist)
-                )
-
-            print(f"Wrote to {output!s}")
+        for i, task in enumerate(self.tasklist):
+            string = task.to_string()
+            if args.enumerate:
+                string = f"{i + 1}: {string}"
+            print(string)
 
 
 def main():

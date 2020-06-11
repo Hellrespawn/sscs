@@ -4,94 +4,112 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Generate To-Do",
+            "label": "Generate to-do",
             "type": "shell",
-            "command": "sscs -o doc/todo.txt --force",
             "problemMatcher": [],
+            "command": "sscs > doc/todo.txt",
             "presentation": {
-                "focus": true
+                "reveal": "silent"
+            },
+        },
+        {
+            "label": "Run tests",
+            "group": "test",
+            "type": "shell",
+            "problemMatcher": [],
+            "command": "rm -rf tests/log && python3 -m unittest discover -v --failfast > doc/test_stdout.txt 2> doc/test.txt",
+            "presentation": {
+                "reveal": "silent"
             }
         },
         {
-            "label": "Format source code",
-            "dependsOrder": "sequence",
-            "dependsOn": ["clean __pycache__", "isort", "black"],
+            "label": "Run and log all tests",
+            "group": "test",
+            "type": "shell",
             "problemMatcher": [],
+            "command": "rm -rf tests/log && python3 -m unittest discover -vv --failfast > doc/test_stdout.txt 2> doc/test.txt",
             "presentation": {
-                "focus": true
+                "reveal": "silent"
             }
         },
         {
-            "label": "Comprehensive linting",
-            "dependsOrder": "sequence",
-            "dependsOn": ["flake8", "bandit", "pylint"],
+            "label": "Clean and format source code",
             "problemMatcher": [],
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "clean __pycache__",
+                "isort",
+                "black"
+            ],
             "presentation": {
-                "focus": true
+                "reveal": "silent"
             }
         },
         {
             "label": "black",
             "type": "shell",
-            "command": "pipenv run python3 -m black -l 78 .",
             "problemMatcher": [],
+            "command": "pipenv run python3 -m black -l 78 .",
             "presentation": {
-                "focus": true
+                "reveal": "silent"
             }
         },
         {
             "label": "isort",
             "type": "shell",
-            "command": "pipenv run python3 -m isort -rc .",
             "problemMatcher": [],
+            "command": "pipenv run python3 -m isort -rc .",
             "presentation": {
-                "focus": true
+                "reveal": "silent"
             }
         },
         {
             "label": "clean __pycache__",
             "type": "shell",
-            "command": "find . -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete",
             "problemMatcher": [],
+            "command": "find . -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete",
             "presentation": {
-                "focus": true
+                "reveal": "silent"
+            }
+        },
+        {
+            "label": "Comprehensive linting",
+            "problemMatcher": [],
+            "dependsOn": [
+                "bandit",
+                "pylint",
+                "flake8"
+            ],
+            "presentation": {
+                "reveal": "silent"
             }
         },
         {
             "label": "flake8",
             "type": "shell",
-            "command": "pipenv run python3 -m flake8 . > doc/flake8.txt",
             "problemMatcher": [],
+            "command": "pipenv run python3 -m flake8 . > doc/flake8.txt",
             "presentation": {
-                "focus": true
+                "reveal": "silent"
             }
         },
         {
             "label": "pylint",
             "type": "shell",
-            "command": "pipenv run python3 -m pylint tag_to_filename > doc/pylint.txt",
             "problemMatcher": [],
+            "command": "pipenv run python3 -m pylint musictools > doc/pylint.txt; pipenv run python3 -m pylint tests >> doc/pylint.txt",
             "presentation": {
-                "focus": true
+                "reveal": "never"
             }
         },
         {
             "label": "bandit",
             "type": "shell",
-            "command": "pipenv run python3 -m bandit -r . > doc/bandit.txt",
             "problemMatcher": [],
+            "command": "pipenv run python3 -m bandit -c .bandit -r . > doc/bandit.txt",
             "presentation": {
-                "focus": true
+                "reveal": "silent"
             }
-        },
-        {
-            "label": "blank",
-            "type": "shell",
-            "command": "",
-            "problemMatcher": [],
-            "presentation": {
-                "focus": true
-            }
-        },
+        }
     ]
 }

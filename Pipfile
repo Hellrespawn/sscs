@@ -17,8 +17,8 @@ mypy = "*"
 [packages]
 blessed = "*"
 toml = "*"
-hrshelpers-hellrespawn = {editable = true,path = "./../hrshelpers"}
 sol-hellrespawn = {editable = true,path = "."}
+hrshelpers-hellrespawn = {editable = true,path = "./../hrshelpers"}
 
 [requires]
 python_version = "3"
