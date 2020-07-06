@@ -23,7 +23,7 @@ class SSCS:
     MAX_RECURSION = 4
     MAX_SIZE = 1024 ** 2  # 1 MB
 
-    WHITELIST = [".py", ".ebnf", ".md", ".txt"]
+    WHITELIST = [".py", ".ebnf", ".md", ".txt", ".rs", ".sh"]
     BLACKLIST = ["todo.txt"]
 
     SKIP = "sscs: skip"
