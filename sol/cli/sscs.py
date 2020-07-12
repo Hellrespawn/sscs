@@ -23,13 +23,13 @@ class SSCS:
     MAX_RECURSION = 4
     MAX_SIZE = 1024 ** 2  # 1 MB
 
-    WHITELIST = [".py", ".ebnf", ".md", ".txt", ".rs", ".sh"]
-    BLACKLIST = ["todo.txt"]
+    ALLOWLIST = [".py", ".ebnf", ".md", ".txt", ".rs", ".sh"]
+    DENYLIST = ["todo.txt"]
 
     SKIP = "sscs: skip"
 
-    def __init__(self, *, whitelist: List[str] = None,) -> None:
-        self.whitelist = (whitelist or []) + self.WHITELIST
+    def __init__(self, *, allowlist: List[str] = None,) -> None:
+        self.allowlist = (allowlist or []) + self.ALLOWLIST
 
         self.tasklist: List[Task] = []
         self.errors: dict = {}
@@ -106,14 +106,14 @@ class SSCS:
                 errors.update(new_errors)
 
             else:
-                if filename.name in self.BLACKLIST:
+                if filename.name in self.DENYLIST:
                     continue
 
                 if getsize(filename) > self.MAX_SIZE:
                     LOG.debug("%s is too big!", filename)
                     continue
 
-                for item in self.whitelist:
+                for item in self.allowlist:
                     if item in filename.suffix:
                         new_tasks, new_errors = self.parse_source_file(
                             filename
