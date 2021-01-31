@@ -10,10 +10,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import toml
-
-import sol
 from hrshelpers.cli import verbosity_from_args
 from hrshelpers.logging import VERBOSE, configure_logger
+
+import sol
 
 from ...task import Task
 from .helpers import COMMAND_LIST, modifies, no_default, register, requires
@@ -128,7 +128,10 @@ class STodo:
         # )
 
         parser.add_argument(
-            "command", default=None, nargs="?", help="command to run",
+            "command",
+            default=None,
+            nargs="?",
+            help="command to run",
         )
 
         return parser

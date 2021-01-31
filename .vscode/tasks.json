@@ -1,35 +1,68 @@
 {
     // See https://go.microsoft.com/fwlink/?LinkId=733558
     // for the documentation about the tasks.json format
+    // FIXME Port all tasks to Windows/Powershell
     "version": "2.0.0",
     "tasks": [
         {
             "label": "Generate to-do",
             "type": "shell",
             "problemMatcher": [],
-            "command": "sscs > doc/todo.txt",
+            "command": "sscs > tmp/todo.txt",
+            "dependsOn": "tmp",
+            "presentation": {
+                "reveal": "silent"
+            }
+        },
+        {
+            "label": "Clear test logs",
+            "group": "test",
+            "type": "shell",
+            "problemMatcher": [],
+            "command": "",
             "presentation": {
                 "reveal": "silent"
             },
+            "linux": {
+                "command": "rm -rf test/log",
+            },
+
+            "windows": {
+                "command": "try { rm -r -fo -ErrorAction SilentlyContinue test\\log } finally { exit 0 }",
+            }
+        },
+        {
+            "label": "Clear tmp",
+            "type": "shell",
+            "problemMatcher": [],
+            "command": "",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "linux": {
+                "command": "rm -rf tmp",
+            },
+
+            "windows": {
+                "command": "try { rm -r -fo -ErrorAction SilentlyContinue tmp } finally { exit 0 }",
+            }
         },
         {
             "label": "Run tests",
             "group": "test",
             "type": "shell",
             "problemMatcher": [],
-            "command": "rm -rf tests/log && python3 -m unittest discover -v --failfast > doc/test_stdout.txt 2> doc/test.txt",
+            "command": "",
+            "dependsOn": "tmp",
             "presentation": {
                 "reveal": "silent"
-            }
-        },
-        {
-            "label": "Run and log all tests",
-            "group": "test",
-            "type": "shell",
-            "problemMatcher": [],
-            "command": "rm -rf tests/log && python3 -m unittest discover -vv --failfast > doc/test_stdout.txt 2> doc/test.txt",
-            "presentation": {
-                "reveal": "silent"
+            },
+            "linux": {
+                "command": "poetry run pytest > tmp/test_stdout.txt 2> tmp/test.txt",
+            },
+
+            "windows": {
+                "command": "Write-Host('\\\"Run tests\\\" is not supported on Windows.')",
             }
         },
         {
@@ -38,8 +71,10 @@
             "dependsOrder": "sequence",
             "dependsOn": [
                 "clean __pycache__",
+                "Clear test logs",
                 "isort",
-                "black"
+                "black",
+                "Clear tmp"
             ],
             "presentation": {
                 "reveal": "silent"
@@ -49,7 +84,7 @@
             "label": "black",
             "type": "shell",
             "problemMatcher": [],
-            "command": "pipenv run python3 -m black -l 78 .",
+            "command": "poetry run python -m black -l 78 .",
             "presentation": {
                 "reveal": "silent"
             }
@@ -58,7 +93,7 @@
             "label": "isort",
             "type": "shell",
             "problemMatcher": [],
-            "command": "pipenv run python3 -m isort -rc .",
+            "command": "poetry run python -m isort . --float-to-top",
             "presentation": {
                 "reveal": "silent"
             }
@@ -67,18 +102,27 @@
             "label": "clean __pycache__",
             "type": "shell",
             "problemMatcher": [],
-            "command": "find . -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete",
+            "command": "",
             "presentation": {
                 "reveal": "silent"
+            },
+            "linux": {
+                "command": "find . -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete",
+            },
+
+            "windows": {  // FIXME Also delete __pycache__
+                "command": "Get-ChildItem -Filter '*.pyc' -Force -Recurse | Remove-Item -Force; Get-ChildItem -Filter '__pycache__' -Force -Recurse | Remove-Item -Force",
             }
         },
         {
             "label": "Comprehensive linting",
             "problemMatcher": [],
+            "dependsOrder": "sequence",
             "dependsOn": [
                 "bandit",
                 "pylint",
-                "flake8"
+                "flake8",
+                "mypy"
             ],
             "presentation": {
                 "reveal": "silent"
@@ -88,7 +132,8 @@
             "label": "flake8",
             "type": "shell",
             "problemMatcher": [],
-            "command": "pipenv run python3 -m flake8 . > doc/flake8.txt",
+            "command": "poetry run python -m flake8 . > tmp/flake8.txt",
+            "dependsOn": "tmp",
             "presentation": {
                 "reveal": "silent"
             }
@@ -97,19 +142,58 @@
             "label": "pylint",
             "type": "shell",
             "problemMatcher": [],
-            "command": "pipenv run python3 -m pylint musictools > doc/pylint.txt; pipenv run python3 -m pylint tests >> doc/pylint.txt",
+            "dependsOn": "tmp",
             "presentation": {
                 "reveal": "never"
-            }
+            },
+            "linux": {
+                "command": "poetry run python -m pylint musictools > tmp/pylint.txt; poetry run python -m pylint test >> tmp/pylint.txt",
+            },
+            "windows": {
+                "command": "try { poetry run python -m pylint musictools > tmp/pylint.txt; poetry run python -m pylint test >> tmp/pylint.txt } finally { exit 0 }",
+            },
         },
         {
             "label": "bandit",
             "type": "shell",
             "problemMatcher": [],
-            "command": "pipenv run python3 -m bandit -c .bandit -r . > doc/bandit.txt",
+            "command": "poetry run python -m bandit -c .bandit -r . > tmp/bandit.txt",
+            "dependsOn": "tmp",
             "presentation": {
                 "reveal": "silent"
             }
-        }
+        },
+        {
+            "label": "mypy",
+            "type": "shell",
+            "problemMatcher": [],
+            "dependsOn": "tmp",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "linux": {
+                "command": "poetry run mypy --ignore-missing-imports . > tmp/mypy.txt",
+            },
+            "windows": {
+                "command": "try { poetry run mypy --ignore-missing-imports . > tmp/mypy.txt } finally { exit 0 }",
+            }
+        },
+        {
+            "label": "tmp",
+            "type": "shell",
+            "problemMatcher": [],
+            "command": "",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "linux": {
+                "command": "mkdir -p tmp",
+            },
+
+            "windows": {
+                "command": "mkdir -force tmp",
+            }
+        },
+
     ]
 }

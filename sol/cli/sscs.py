@@ -1,4 +1,3 @@
-# TODO? append instead of overwrite flag
 import argparse
 import logging
 import re
@@ -9,8 +8,9 @@ from os.path import getsize
 from pathlib import Path
 from typing import DefaultDict, List, Tuple
 
-import sol
 from hrshelpers.logging import configure_logger
+
+import sol
 from sol.task import Task
 
 LOG = logging.getLogger(__name__)
@@ -24,11 +24,15 @@ class SSCS:
     MAX_SIZE = 1024 ** 2  # 1 MB
 
     ALLOWLIST = [".py", ".ebnf", ".md", ".txt", ".rs", ".sh"]
-    DENYLIST = ["todo.txt"]
+    DENYLIST = ["todo.txt", ".venv"]
 
     SKIP = "sscs: skip"
 
-    def __init__(self, *, allowlist: List[str] = None,) -> None:
+    def __init__(
+        self,
+        *,
+        allowlist: List[str] = None,
+    ) -> None:
         self.allowlist = (allowlist or []) + self.ALLOWLIST
 
         self.tasklist: List[Task] = []
@@ -100,15 +104,15 @@ class SSCS:
         errors: DefaultDict[str, List[int]] = defaultdict(list)
 
         for filename in path.iterdir():
+            if filename.name in self.DENYLIST:
+                continue
+
             if filename.is_dir() and i < self.MAX_RECURSION:
                 new_tasks, new_errors = self.recurse_project(filename, i + 1)
                 tasklist.extend(new_tasks)
                 errors.update(new_errors)
 
             else:
-                if filename.name in self.DENYLIST:
-                    continue
-
                 if getsize(filename) > self.MAX_SIZE:
                     LOG.debug("%s is too big!", filename)
                     continue
@@ -160,7 +164,7 @@ class SSCS:
         self.tasklist, self.errors = self.recurse_project(Path(args.path))
         self.tasklist.sort()
 
-        self.tasklist = [Task(f"header:options mode:sol")] + self.tasklist
+        self.tasklist = [Task("header:options mode:sol")] + self.tasklist
 
         self.tasklist.append(
             Task(f"footer:time Generated on {datetime.now()}")
