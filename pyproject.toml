@@ -1,12 +1,12 @@
 [tool.poetry]
-name = "sol"
+name = "hrssol"
 version = "0.1.0"
 description = "Text stuff"
 authors = ["Stef Korporaal <stefkorporaal@gmail.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
-hrshelpers-hellrespawn = {path = "../hrshelpers"}
+hrshelpers = "^0.1.0"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^3.8.4"
