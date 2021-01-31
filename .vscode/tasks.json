@@ -147,10 +147,10 @@
                 "reveal": "never"
             },
             "linux": {
-                "command": "poetry run python -m pylint musictools > tmp/pylint.txt; poetry run python -m pylint test >> tmp/pylint.txt",
+                "command": "poetry run python -m pylint soltext > tmp/pylint.txt; poetry run python -m pylint test >> tmp/pylint.txt",
             },
             "windows": {
-                "command": "try { poetry run python -m pylint musictools > tmp/pylint.txt; poetry run python -m pylint test >> tmp/pylint.txt } finally { exit 0 }",
+                "command": "try { poetry run python -m pylint soltext > tmp/pylint.txt; poetry run python -m pylint test >> tmp/pylint.txt } finally { exit 0 }",
             },
         },
         {

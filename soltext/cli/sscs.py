@@ -10,8 +10,8 @@ from typing import DefaultDict, List, Tuple
 
 from hrshelpers.logging import configure_logger
 
-import sol
-from sol.task import Task
+import soltext
+from soltext.task import Task
 
 LOG = logging.getLogger(__name__)
 
@@ -159,12 +159,12 @@ class SSCS:
     def main(self) -> None:
         args = self.parse_args()
 
-        configure_logger(args.verbosity, sol.LOG_PATH, sol.__name__)
+        configure_logger(args.verbosity, soltext.LOG_PATH, soltext.__name__)
 
         self.tasklist, self.errors = self.recurse_project(Path(args.path))
         self.tasklist.sort()
 
-        self.tasklist = [Task("header:options mode:sol")] + self.tasklist
+        self.tasklist = [Task("header:options mode:soltext")] + self.tasklist
 
         self.tasklist.append(
             Task(f"footer:time Generated on {datetime.now()}")

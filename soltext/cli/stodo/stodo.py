@@ -13,7 +13,7 @@ import toml
 from hrshelpers.cli import verbosity_from_args
 from hrshelpers.logging import VERBOSE, configure_logger
 
-import sol
+import soltext
 
 from ...task import Task
 from .helpers import COMMAND_LIST, modifies, no_default, register, requires
@@ -22,11 +22,11 @@ LOG = logging.getLogger(__name__)
 
 
 class STodo:
-    DEFAULT_DIR = Path.expanduser(Path("~/.sol"))
+    DEFAULT_DIR = Path.expanduser(Path("~/.soltext"))
 
     def __init__(self) -> None:
         verbosity = verbosity_from_args()
-        configure_logger(verbosity, sol.LOG_PATH, sol.__name__)
+        configure_logger(verbosity, soltext.LOG_PATH, soltext.__name__)
 
         self.parser = self.create_parser()
         try:
@@ -150,7 +150,7 @@ class STodo:
             settings = toml.load(cfg_file, dict)
         except FileNotFoundError:
             Path.mkdir(self.DEFAULT_DIR, parents=True, exist_ok=True)
-            settings = {"todo-dir": "~/.sol"}
+            settings = {"todo-dir": "~/.soltext"}
             with open(self.DEFAULT_DIR / "config", "w") as file:
                 toml.dump(settings, file)
 

@@ -5,15 +5,15 @@ import blessed
 from hrshelpers.cli import verbosity_from_args
 from hrshelpers.logging import configure_logger
 
-import sol
+import soltext
 
 
 class STodo:
     def __init__(self):
         configure_logger(
             verbosity_from_args(False),
-            sol.LOG_PATH,
-            sol.__name__,
+            soltext.LOG_PATH,
+            soltext.__name__,
         )
 
         self.terminal = blessed.Terminal()
