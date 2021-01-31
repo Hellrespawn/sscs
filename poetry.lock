@@ -130,17 +130,17 @@ python-versions = ">=3.4"
 gitdb = ">=4.0.1,<5"
 
 [[package]]
-name = "hrshelpers-Hellrespawn"
-version = "0.0.2"
-description = "Extra logging stuff."
+name = "hrshelpers"
+version = "0.1.1"
+description = "Common functions."
 category = "main"
 optional = false
-python-versions = "*"
-develop = false
+python-versions = ">=3.9,<4.0"
 
 [package.source]
-type = "directory"
-url = "../hrshelpers"
+type = "legacy"
+url = "https://sleipnir.no-ip.net/pypi"
+reference = "sleipnir"
 
 [[package]]
 name = "iniconfig"
@@ -387,7 +387,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "6110621ce7a054a335f11c96434ab62b1305a215f0a3587813d5d089bd6dd3fb"
+content-hash = "ffa9ad346c6da5be025b908b74a83f3ffbe909ed9100bf9440a07a87bcdb731f"
 
 [metadata.files]
 appdirs = [
@@ -433,7 +433,7 @@ gitpython = [
     {file = "GitPython-3.1.12-py3-none-any.whl", hash = "sha256:867ec3dfb126aac0f8296b19fb63b8c4a399f32b4b6fafe84c4b10af5fa9f7b5"},
     {file = "GitPython-3.1.12.tar.gz", hash = "sha256:42dbefd8d9e2576c496ed0059f3103dcef7125b9ce16f9d5f9c834aed44a1dac"},
 ]
-hrshelpers-Hellrespawn = []
+hrshelpers = []
 iniconfig = [
     {file = "iniconfig-1.1.1-py2.py3-none-any.whl", hash = "sha256:011e24c64b7f47f6ebd835bb12a743f2fbe9a26d4cecaa7f53bc4f35ee9da8b3"},
     {file = "iniconfig-1.1.1.tar.gz", hash = "sha256:bc3af051d7d14b2ee5ef9969666def0cd1a000e121eaea580d4a313df4b37f32"},
