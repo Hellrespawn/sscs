@@ -4,6 +4,11 @@ version = "0.1.0"
 description = "Text stuff"
 authors = ["Stef Korporaal <stefkorporaal@gmail.com>"]
 
+[[tool.poetry.source]]
+name = "sleipnir"
+url = "https://sleipnir.no-ip.net/pypi"
+secondary = true
+
 [tool.poetry.dependencies]
 python = "^3.9"
 hrshelpers = "^0.1.0"
