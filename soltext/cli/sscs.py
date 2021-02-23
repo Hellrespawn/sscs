@@ -10,6 +10,8 @@ from typing import DefaultDict, List, Tuple
 
 from hrshelpers.logging import configure_logger
 
+from rich import print
+
 import soltext
 from soltext.task import Task
 
@@ -167,7 +169,7 @@ class SSCS:
         self.tasklist = [Task("header:options mode:soltext")] + self.tasklist
 
         self.tasklist.append(
-            Task(f"footer:time Generated on {datetime.now()}")
+            Task(f"footer:time Generated on {str(datetime.now()).split('.')[0]}")
         )
 
         if self.errors:

@@ -167,7 +167,7 @@ class Task:
             except ValueError:
                 raise ValueError(
                     f'Unable to parse completion date in "{string}"!'
-                )
+                ) from None
 
         else:
             date_completed = None
@@ -177,7 +177,7 @@ class Task:
         except ValueError:
             raise ValueError(
                 f'Unable to parse completion date in "{string}"!'
-            )
+            ) from None
 
         return cls(
             msg, bool(complete), priority, date_created, date_completed
