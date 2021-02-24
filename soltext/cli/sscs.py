@@ -1,7 +1,6 @@
 import argparse
 import logging
 import re
-import sys
 from collections import defaultdict
 from datetime import datetime
 from os.path import getsize
@@ -9,8 +8,8 @@ from pathlib import Path
 from typing import DefaultDict, List, Tuple
 
 from hrshelpers.logging import configure_logger
-
-from rich import print
+from rich.console import Console, RenderableType
+from rich.table import Table
 
 import soltext
 from soltext.task import Task
@@ -39,6 +38,11 @@ class SSCS:
 
         self.tasklist: List[Task] = []
         self.errors: dict = {}
+
+        self.args = self.parse_args()
+        configure_logger(
+            self.args.verbosity, soltext.LOG_PATH, soltext.__name__
+        )
 
     @classmethod
     def parse_match(cls, line_no, filename, match):
@@ -144,33 +148,80 @@ class SSCS:
         )
 
         parser.add_argument(
-            "--enumerate",
+            "--ascii",
             action="store_true",
-            help="Include line numbers in output.",
+            help="Output in ascii mode.",
         )
 
         parser.add_argument("path", nargs="?", default=Path.cwd())
 
         return parser.parse_args()
 
-    @staticmethod
-    def error(string: str) -> None:
-        print(string)
-        sys.exit()
+    def to_string_ascii(self) -> RenderableType:
+        self.tasklist.append(
+            Task(
+                f"footer:time Generated on {str(datetime.now()).split('.')[0]}"
+            )
+        )
+
+        output = "\n".join(task.to_string() for task in self.tasklist)
+
+        self.tasklist.pop()
+
+        return output
+
+    def to_string_rich(self) -> RenderableType:
+        table = Table(title="SSCS:", show_footer=True, show_header=False)
+
+        table.add_column(
+            footer=f"Generated on {str(datetime.now()).split('.')[0]}"
+        )
+
+        tasklists = (
+            [
+                task
+                for task in self.tasklist
+                if task.keywords["c"] == "FIXME"  # sscs: skip
+            ],
+            [
+                task
+                for task in self.tasklist
+                if task.keywords["c"] == "TODO"  # sscs: skip
+            ],
+            [
+                task
+                for task in self.tasklist
+                if task.keywords["c"] in ("TODO?", "IDEA")  # sscs: skip
+            ],
+            [
+                task
+                for task in self.tasklist
+                if task.keywords["c"] == "UPSTREAM"  # sscs: skip
+            ],
+        )
+
+        for tasklist in tasklists:
+            for i, task in enumerate(tasklist):
+                end_section = False
+
+                if i == len(tasklist) - 1:
+                    end_section = True
+
+                table.add_row(task.to_string(), end_section=end_section)
+
+        return table
+
+    def to_string(self) -> RenderableType:
+        if self.args.ascii:
+            return self.to_string_ascii()
+
+        return self.to_string_rich()
 
     def main(self) -> None:
-        args = self.parse_args()
-
-        configure_logger(args.verbosity, soltext.LOG_PATH, soltext.__name__)
-
-        self.tasklist, self.errors = self.recurse_project(Path(args.path))
-        self.tasklist.sort()
-
-        self.tasklist = [Task("header:options mode:soltext")] + self.tasklist
-
-        self.tasklist.append(
-            Task(f"footer:time Generated on {str(datetime.now()).split('.')[0]}")
+        self.tasklist, self.errors = self.recurse_project(
+            Path(self.args.path)
         )
+        self.tasklist.sort()
 
         if self.errors:
             LOG.info("Logging errors:")
@@ -183,11 +234,9 @@ class SSCS:
                     )
                     # pylint: enable=logging-not-lazy
 
-        for i, task in enumerate(self.tasklist):
-            string = task.to_string()
-            if args.enumerate:
-                string = f"{i + 1}: {string}"
-            print(string)
+        console = Console(highlight=False)
+
+        console.print(self.to_string())
 
 
 def main():
