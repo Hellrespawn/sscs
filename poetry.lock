@@ -348,7 +348,7 @@ python-versions = "*"
 
 [[package]]
 name = "rich"
-version = "9.11.1"
+version = "10.4.0"
 description = "Render rich text, tables, progress bars, syntax highlighting, markdown and more to the terminal"
 category = "main"
 optional = false
@@ -358,7 +358,6 @@ python-versions = ">=3.6,<4.0"
 colorama = ">=0.4.0,<0.5.0"
 commonmark = ">=0.9.0,<0.10.0"
 pygments = ">=2.6.0,<3.0.0"
-typing-extensions = ">=3.7.4,<4.0.0"
 
 [package.extras]
 jupyter = ["ipywidgets (>=7.5.1,<8.0.0)"]
@@ -410,7 +409,7 @@ python-versions = "*"
 name = "typing-extensions"
 version = "3.7.4.3"
 description = "Backported and Experimental Type Hints for Python 3.5+"
-category = "main"
+category = "dev"
 optional = false
 python-versions = "*"
 
@@ -425,7 +424,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "8f82b55a59efcdeeb16994e6062699ab3d5858ff55aa4c279b47c3de5642c072"
+content-hash = "e16c66ab2d82d6a76cdf03c85a34138823d0da536801371829e8015cd46ad85d"
 
 [metadata.files]
 appdirs = [
@@ -645,8 +644,8 @@ regex = [
     {file = "regex-2020.11.13.tar.gz", hash = "sha256:83d6b356e116ca119db8e7c6fc2983289d87b27b3fac238cfe5dca529d884562"},
 ]
 rich = [
-    {file = "rich-9.11.1-py3-none-any.whl", hash = "sha256:1f7c481be658eb27f451c3f714aec5bc1fc2431c28f89848ef589c2392171f2e"},
-    {file = "rich-9.11.1.tar.gz", hash = "sha256:86a157008d17c73ee03da80de91e09fc2f7713109ccd4e90496eeb3702bef638"},
+    {file = "rich-10.4.0-py3-none-any.whl", hash = "sha256:9fb2404c4e870d4de3837c11d0cd1f26c44725865535caba1379c2343a49f6a1"},
+    {file = "rich-10.4.0.tar.gz", hash = "sha256:6e8a3e2c61e6cf6193bfcffbb89865a0973af7779d3ead913fdbbbc33f457c2c"},
 ]
 six = [
     {file = "six-1.15.0-py2.py3-none-any.whl", hash = "sha256:8b74bedcbbbaca38ff6d7491d76f2b06b3592611af620f8426e82dddb04a5ced"},
