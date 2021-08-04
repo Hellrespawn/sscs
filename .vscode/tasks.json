@@ -118,7 +118,6 @@
             "problemMatcher": [],
             "dependsOrder": "sequence",
             "dependsOn": [
-                "bandit",
                 "pylint",
                 "flake8",
                 "mypy"
@@ -146,17 +145,17 @@
                 "reveal": "never"
             },
             "linux": {
-                "command": "poetry run python -m pylint soltext > tmp/pylint.txt; poetry run python -m pylint test >> tmp/pylint.txt",
+                "command": "poetry run python -m pylint sscs > tmp/pylint.txt; poetry run python -m pylint test >> tmp/pylint.txt",
             },
             "windows": {
-                "command": "try { poetry run python -m pylint soltext > tmp/pylint.txt; poetry run python -m pylint test >> tmp/pylint.txt } finally { exit 0 }",
+                "command": "try { poetry run python -m pylint sscs > tmp/pylint.txt } finally { exit 0 }",
             },
         },
         {
             "label": "bandit",
             "type": "shell",
             "problemMatcher": [],
-            "command": "poetry run python -m bandit -c .bandit -r . > tmp/bandit.txt",
+            "command": "poetry run python -m bandit -r . > tmp/bandit.txt",
             "dependsOn": "tmp",
             "presentation": {
                 "reveal": "silent"

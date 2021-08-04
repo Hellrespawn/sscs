@@ -22,18 +22,9 @@ class Profile:
             raise ValueError(f"{path} is not a file!")
 
         if self.allowed_extensions:
-            if path.suffix in self.allowed_extensions:
-                return True
+            return bool(path.suffix in self.allowed_extensions)
 
-            else:
-                return False
-
-        else:
-            if path.suffix in self.denied_extensions:
-                return False
-
-            else:
-                return True
+        return not bool(path.suffix in self.denied_extensions)
 
     def is_file_allowed(self, path: Path) -> bool:
         if not path.is_file():
@@ -44,11 +35,10 @@ class Profile:
         if filename in self.allowed_files:
             return True
 
-        elif filename in self.denied_files:
+        if filename in self.denied_files:
             return False
 
-        else:
-            return self._is_extension_allowed(path)
+        return self._is_extension_allowed(path)
 
     def is_dir_allowed(self, path: Path) -> bool:
         if not path.is_dir():
@@ -57,15 +47,6 @@ class Profile:
         filename = str(path.name)
 
         if self.allowed_directories:
-            if filename in self.allowed_directories:
-                return True
+            return bool(filename in self.allowed_directories)
 
-            else:
-                return False
-
-        else:
-            if filename in self.denied_directories:
-                return False
-
-            else:
-                return True
+        return not bool(filename in self.denied_directories)

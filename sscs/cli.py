@@ -13,6 +13,9 @@ from sscs.task import Task
 
 from .profile import Profile
 
+# TODO Serialize/Deserialize profiles
+# TODO Default profile (never need .git, for instance)
+
 PROFILES = {
     "rust": Profile(
         "rust",
@@ -37,7 +40,7 @@ def calculate_profile(path: Path) -> Profile:
             if (path / Path(indicator)).is_file():
                 return profile
 
-    raise ValueError(f"Unable to calculate profile for {path}")
+    raise ValueError(f"Unable to calculate profile for {path}!")
 
 
 class SSCS:
@@ -121,7 +124,7 @@ class SSCS:
     def recurse_project(
         self, path: Path, i: int
     ) -> Tuple[List, DefaultDict[str, List[int]]]:
-        tasklist = []
+        tasklist: List[Task] = []
         errors: DefaultDict[str, List[int]] = defaultdict(list)
 
         if i <= 0:
@@ -140,7 +143,7 @@ class SSCS:
                 if getsize(filename) > self.MAX_SIZE:
                     continue
 
-                elif self.profile.is_file_allowed(filename):
+                if self.profile.is_file_allowed(filename):
                     new_tasks, new_errors = self.parse_source_file(filename)
                     tasklist.extend(new_tasks)
                     errors.update(new_errors)
@@ -148,10 +151,10 @@ class SSCS:
         return tasklist, errors
 
     def to_string_ascii(self) -> RenderableType:
+        time = str(datetime.now()).split(".", maxsplit=1)[0]
+
         self.tasklist.append(
-            Task(
-                f"footer:time Generated {str(datetime.now()).split('.')[0]} profile:{self.profile.name}"
-            )
+            Task(f"footer:time Generated {time} profile:{self.profile.name}")
         )
 
         output = "\n".join(task.to_string() for task in self.tasklist)
@@ -163,8 +166,10 @@ class SSCS:
     def to_string_rich(self) -> RenderableType:
         table = Table(show_footer=True, show_header=False)
 
+        time = str(datetime.now()).split(".", maxsplit=1)[0]
+
         table.add_column(
-            footer=f"Generated on {str(datetime.now()).split('.')[0]}, Profile: {self.profile.name}"
+            footer=f"Generated on {time} with profile: {self.profile.name}"
         )
 
         tasklists = (
@@ -220,7 +225,20 @@ class SSCS:
 
 def main():
     args = parse_args()
-    profile = PROFILES.get(args.profile) or calculate_profile(args.path)
+    if args.profile:
+        profile = PROFILES.get(args.profile)
+        if not profile:
+            print(f"No such profile: {args.profile}! Profiles:")
+            print("\t" + ", ".join(PROFILES.keys()))
+            return
+
+    else:
+        try:
+            profile = calculate_profile(args.path)
+        except ValueError as exc:
+            print(exc)
+            return
+
     SSCS(profile, args.path, args.ascii).main()
 
 
