@@ -1,22 +1,12 @@
 # TODO? Check completed date after created date
-import logging
 import re
 from datetime import datetime
 from functools import total_ordering
-from types import SimpleNamespace
 from typing import Dict, List, Optional, Tuple
-
-from hrshelpers.logging import VERBOSE
-
-LOG = logging.getLogger(__name__)
 
 
 @total_ordering
 class Task:
-    DEFAULT = SimpleNamespace(
-        complete=False, priority="", date_created=None, date_completed=None
-    )
-
     def __init__(
         self,
         msg: str,
@@ -29,15 +19,13 @@ class Task:
         if not self.msg:
             raise ValueError("Task message must not be empty.")
 
-        self.complete = complete or self.DEFAULT.complete
-        self.priority = priority or self.DEFAULT.priority
-        self.date_created = date_created or self.DEFAULT.date_created
-        self.date_completed = date_completed or self.DEFAULT.date_completed
+        self.complete = complete or False
+        self.priority = priority or ""
+        self.date_created = date_created or None
+        self.date_completed = date_completed or None
 
         if self.date_completed and not self.complete:
             raise ValueError("Only completed task can have completion date!")
-
-        LOG.log(VERBOSE, "Created %r", self)
 
     @property
     def priority(self):
@@ -137,16 +125,16 @@ class Task:
     @classmethod
     def comparison_tuple(cls, task):
         return (
-            task.complete != cls.DEFAULT.complete,
+            task.complete is not False,
             task.complete,
-            task.priority == cls.DEFAULT.priority,
+            task.priority == "",
             task.priority,
             (
-                task.date_created == cls.DEFAULT.date_created,
+                task.date_created is None,
                 task.date_created,
             ),
             (
-                task.date_completed == cls.DEFAULT.date_completed,
+                task.date_completed is None,
                 task.date_completed,
             ),
             task.msg,

@@ -1,5 +1,4 @@
 import argparse
-import logging
 import re
 from collections import defaultdict
 from datetime import datetime
@@ -7,14 +6,38 @@ from os.path import getsize
 from pathlib import Path
 from typing import DefaultDict, List, Tuple
 
-from hrshelpers.logging import configure_logger
 from rich.console import Console, RenderableType
 from rich.table import Table
 
-import soltext
-from soltext.task import Task
+from sscs.task import Task
 
-LOG = logging.getLogger(__name__)
+from .profile import Profile
+
+PROFILES = {
+    "rust": Profile(
+        "rust",
+        ["Cargo.toml", "Cargo.lock"],
+        denied_directories=["target", ".git"],
+        denied_extensions=[".log"],
+        denied_files=["todo.txt"],
+    ),
+    "python": Profile(
+        "python",
+        ["pyproject.toml", "Pipfile", "setup.py"],
+        denied_directories=[".git", ".mypy_cache", ".venv"],
+        denied_extensions=[".log"],
+        denied_files=["todo.txt"],
+    ),
+}
+
+
+def calculate_profile(path: Path) -> Profile:
+    for profile in PROFILES.values():
+        for indicator in profile.indicator_files:
+            if (path / Path(indicator)).is_file():
+                return profile
+
+    raise ValueError(f"Unable to calculate profile for {path}")
 
 
 class SSCS:
@@ -24,25 +47,17 @@ class SSCS:
     MAX_RECURSION = 4
     MAX_SIZE = 1024 ** 2  # 1 MB
 
-    ALLOWLIST = [".py", ".ebnf", ".md", ".txt", ".rs", ".sh"]
-    DENYLIST = ["todo.txt", ".venv"]
-
     SKIP = "sscs: skip"
 
     def __init__(
-        self,
-        *,
-        allowlist: List[str] = None,
+        self, profile: Profile, path: Path, ascii_mode: bool = False
     ) -> None:
-        self.allowlist = (allowlist or []) + self.ALLOWLIST
+        self.profile = profile
+        self.path = path
+        self.ascii_mode = ascii_mode
 
         self.tasklist: List[Task] = []
         self.errors: dict = {}
-
-        self.args = self.parse_args()
-        configure_logger(
-            self.args.verbosity, soltext.LOG_PATH, soltext.__name__
-        )
 
     @classmethod
     def parse_match(cls, line_no, filename, match):
@@ -104,63 +119,38 @@ class SSCS:
         return tasklist, errors
 
     def recurse_project(
-        self, path: Path, i: int = 0
+        self, path: Path, i: int
     ) -> Tuple[List, DefaultDict[str, List[int]]]:
         tasklist = []
         errors: DefaultDict[str, List[int]] = defaultdict(list)
 
-        for filename in path.iterdir():
-            if filename.name in self.DENYLIST:
-                continue
+        if i <= 0:
+            return tasklist, errors
 
-            if filename.is_dir() and i < self.MAX_RECURSION:
-                new_tasks, new_errors = self.recurse_project(filename, i + 1)
-                tasklist.extend(new_tasks)
-                errors.update(new_errors)
+        for filename in path.iterdir():
+            if filename.is_dir():
+                if self.profile.is_dir_allowed(filename):
+                    new_tasks, new_errors = self.recurse_project(
+                        filename, i - 1
+                    )
+                    tasklist.extend(new_tasks)
+                    errors.update(new_errors)
 
             else:
                 if getsize(filename) > self.MAX_SIZE:
-                    LOG.debug("%s is too big!", filename)
                     continue
 
-                for item in self.allowlist:
-                    if item in filename.suffix:
-                        new_tasks, new_errors = self.parse_source_file(
-                            filename
-                        )
-                        tasklist.extend(new_tasks)
-                        errors.update(new_errors)
-                        break
+                elif self.profile.is_file_allowed(filename):
+                    new_tasks, new_errors = self.parse_source_file(filename)
+                    tasklist.extend(new_tasks)
+                    errors.update(new_errors)
 
         return tasklist, errors
-
-    @staticmethod
-    def parse_args() -> argparse.Namespace:
-        parser = argparse.ArgumentParser()
-
-        parser.add_argument(
-            "--verbose",
-            "-v",
-            action="count",
-            dest="verbosity",
-            help="increase verbosity",
-            default=0,
-        )
-
-        parser.add_argument(
-            "--ascii",
-            action="store_true",
-            help="Output in ascii mode.",
-        )
-
-        parser.add_argument("path", nargs="?", default=Path.cwd())
-
-        return parser.parse_args()
 
     def to_string_ascii(self) -> RenderableType:
         self.tasklist.append(
             Task(
-                f"footer:time Generated on {str(datetime.now()).split('.')[0]}"
+                f"footer:time Generated {str(datetime.now()).split('.')[0]} profile:{self.profile.name}"
             )
         )
 
@@ -171,10 +161,10 @@ class SSCS:
         return output
 
     def to_string_rich(self) -> RenderableType:
-        table = Table(title="SSCS:", show_footer=True, show_header=False)
+        table = Table(show_footer=True, show_header=False)
 
         table.add_column(
-            footer=f"Generated on {str(datetime.now()).split('.')[0]}"
+            footer=f"Generated on {str(datetime.now()).split('.')[0]}, Profile: {self.profile.name}"
         )
 
         tasklists = (
@@ -212,27 +202,16 @@ class SSCS:
         return table
 
     def to_string(self) -> RenderableType:
-        if self.args.ascii:
+        if self.ascii_mode:
             return self.to_string_ascii()
 
         return self.to_string_rich()
 
     def main(self) -> None:
         self.tasklist, self.errors = self.recurse_project(
-            Path(self.args.path)
+            Path(self.path), self.MAX_RECURSION
         )
         self.tasklist.sort()
-
-        if self.errors:
-            LOG.info("Logging errors:")
-            for filename in self.errors:
-                if LOG.isEnabledFor(logging.INFO):
-                    # pylint: disable=logging-not-lazy
-                    LOG.info(
-                        f"{filename!s}: "
-                        ", ".join(str(i) for i in self.errors[filename])
-                    )
-                    # pylint: enable=logging-not-lazy
 
         console = Console(highlight=False)
 
@@ -240,4 +219,35 @@ class SSCS:
 
 
 def main():
-    SSCS().main()
+    args = parse_args()
+    profile = PROFILES.get(args.profile) or calculate_profile(args.path)
+    SSCS(profile, args.path, args.ascii).main()
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        action="count",
+        dest="verbosity",
+        help="increase verbosity",
+        default=0,
+    )
+
+    parser.add_argument(
+        "--ascii",
+        action="store_true",
+        help="Output in ascii mode.",
+    )
+
+    parser.add_argument(
+        "--profile",
+        "-p",
+        help="Manually select profile",
+    )
+
+    parser.add_argument("path", nargs="?", default=Path.cwd())
+
+    return parser.parse_args()

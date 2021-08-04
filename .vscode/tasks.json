@@ -1,7 +1,6 @@
 {
     // See https://go.microsoft.com/fwlink/?LinkId=733558
     // for the documentation about the tasks.json format
-    // FIXME Port all tasks to Windows/Powershell
     "version": "2.0.0",
     "tasks": [
         {
@@ -110,7 +109,7 @@
                 "command": "find . -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete",
             },
 
-            "windows": {  // FIXME Also delete __pycache__
+            "windows": {
                 "command": "Get-ChildItem -Filter '*.pyc' -Force -Recurse | Remove-Item -Force; Get-ChildItem -Filter '__pycache__' -Force -Recurse | Remove-Item -Force",
             }
         },
