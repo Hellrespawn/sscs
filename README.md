@@ -1,3 +1,3 @@
-# python-template
+# SSCS
 
-Template for Python projects.
+Stef's Source Code Scraper
