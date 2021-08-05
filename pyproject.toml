@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sscs"
-version = "0.4.2"
+version = "0.4.3"
 description = "Stef's Source Code Scraper"
 authors = ["Stef Korporaal <stefkorporaal@gmail.com>"]
 include = ["profiles.toml"]

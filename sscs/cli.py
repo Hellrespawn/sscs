@@ -196,7 +196,7 @@ class SSCS:
         )
         self.tasklist.sort()
 
-        console = Console(highlight=False)
+        console = Console()
 
         console.print(self.to_string())
 
@@ -212,8 +212,6 @@ def main():
         profile.__dict__.update(profile_dict)
 
         profiles[name] = profile
-
-    print(profiles)
 
     args = parse_args()
 
