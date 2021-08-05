@@ -26,6 +26,9 @@ class Profile:
         self.allowed_directories = allowed_directories or []
         self.denied_directories = denied_directories or []
 
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}(name={self.name}, indicator_files={self.indicator_files})"
+
     def _is_extension_allowed(self, path: Path) -> bool:
         if not path.is_file():
             raise ValueError(f"{path} is not a file!")

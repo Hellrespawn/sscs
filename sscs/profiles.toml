@@ -1,0 +1,19 @@
+[default]
+name = "default"
+denied_extensions = [ ".log",]
+denied_files = [ "todo.txt",]
+denied_directories = [ ".git",]
+
+[rust]
+name = "rust"
+indicator_files = [ "Cargo.toml", "Cargo.lock",]
+denied_extensions = [ ".log",]
+denied_files = [ "todo.txt",]
+denied_directories = [ "target", ".git",]
+
+[python]
+name = "python"
+indicator_files = [ "pyproject.toml", "Pipfile", "setup.py",]
+denied_extensions = [ ".log",]
+denied_files = [ "todo.txt",]
+denied_directories = [ ".git", ".mypy_cache", ".venv",]

@@ -10,6 +10,7 @@ class Task:
     def __init__(
         self,
         msg: str,
+        *,
         complete: bool = None,
         priority: str = None,
         date_created: datetime = None,
@@ -168,7 +169,11 @@ class Task:
             ) from None
 
         return cls(
-            msg, bool(complete), priority, date_created, date_completed
+            msg,
+            complete=bool(complete),
+            priority=priority,
+            date_created=date_created,
+            date_completed=date_completed,
         )
 
     @staticmethod

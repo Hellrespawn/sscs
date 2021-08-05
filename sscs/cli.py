@@ -6,41 +6,13 @@ from os.path import getsize
 from pathlib import Path
 from typing import DefaultDict, List, Tuple
 
+import toml
 from rich.console import Console, RenderableType
 from rich.table import Table
 
 from sscs.task import Task
 
 from .profile import Profile
-
-# TODO Serialize/Deserialize profiles
-# TODO Default profile (never need .git, for instance)
-
-PROFILES = {
-    "rust": Profile(
-        "rust",
-        ["Cargo.toml", "Cargo.lock"],
-        denied_directories=["target", ".git"],
-        denied_extensions=[".log"],
-        denied_files=["todo.txt"],
-    ),
-    "python": Profile(
-        "python",
-        ["pyproject.toml", "Pipfile", "setup.py"],
-        denied_directories=[".git", ".mypy_cache", ".venv"],
-        denied_extensions=[".log"],
-        denied_files=["todo.txt"],
-    ),
-}
-
-
-def calculate_profile(path: Path) -> Profile:
-    for profile in PROFILES.values():
-        for indicator in profile.indicator_files:
-            if (path / Path(indicator)).is_file():
-                return profile
-
-    raise ValueError(f"Unable to calculate profile for {path}!")
 
 
 class SSCS:
@@ -53,11 +25,11 @@ class SSCS:
     SKIP = "sscs: skip"
 
     def __init__(
-        self, profile: Profile, path: Path, ascii_mode: bool = False
+        self, profile: Profile, path: Path, rich_mode: bool = False
     ) -> None:
         self.profile = profile
         self.path = path
-        self.ascii_mode = ascii_mode
+        self.rich_mode = rich_mode
 
         self.tasklist: List[Task] = []
         self.errors: dict = {}
@@ -151,10 +123,16 @@ class SSCS:
         return tasklist, errors
 
     def to_string_ascii(self) -> RenderableType:
-        time = str(datetime.now()).split(".", maxsplit=1)[0]
+        date, time = (
+            str(datetime.now())
+            .split(".", maxsplit=1)[0]
+            .split(" ", maxsplit=1)
+        )
 
         self.tasklist.append(
-            Task(f"footer:time Generated {time} profile:{self.profile.name}")
+            Task(
+                f"footer:gen  date:{date} time:{time} profile:{self.profile.name}"
+            )
         )
 
         output = "\n".join(task.to_string() for task in self.tasklist)
@@ -207,10 +185,10 @@ class SSCS:
         return table
 
     def to_string(self) -> RenderableType:
-        if self.ascii_mode:
-            return self.to_string_ascii()
+        if self.rich_mode:
+            return self.to_string_rich()
 
-        return self.to_string_rich()
+        return self.to_string_ascii()
 
     def main(self) -> None:
         self.tasklist, self.errors = self.recurse_project(
@@ -224,22 +202,47 @@ class SSCS:
 
 
 def main():
+    with open(Path(__file__).parent / "profiles.toml") as file:
+        toml_dict = toml.loads(file.read())
+
+    profiles = {}
+
+    for name, profile_dict in toml_dict.items():
+        profile = Profile("", [])
+        profile.__dict__.update(profile_dict)
+
+        profiles[name] = profile
+
+    print(profiles)
+
     args = parse_args()
+
     if args.profile:
-        profile = PROFILES.get(args.profile)
-        if not profile:
+        selected_profile = profiles.get(args.profile)
+        if not selected_profile:
             print(f"No such profile: {args.profile}! Profiles:")
-            print("\t" + ", ".join(PROFILES.keys()))
+            print("\t" + ", ".join(profiles.keys()))
             return
 
     else:
-        try:
-            profile = calculate_profile(args.path)
-        except ValueError as exc:
-            print(exc)
-            return
+        for profile in profiles.values():
+            for indicator in profile.indicator_files:
+                if (args.path / Path(indicator)).is_file():
+                    selected_profile = profile
+                    break
+            else:
+                continue
 
-    SSCS(profile, args.path, args.ascii).main()
+            # If the inner break does not occur, the else clause does, and the
+            # the inner loop hits `continue`. If the inner break *does* occur
+            # the continue is skipped and the outer break is hit.
+            break
+
+        else:
+            print(f"Unable to calculate profile for {args.path}, using default")
+            selected_profile = profiles["default"]
+
+    SSCS(selected_profile, args.path, args.rich).main()
 
 
 def parse_args() -> argparse.Namespace:
@@ -255,9 +258,9 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--ascii",
+        "--rich",
         action="store_true",
-        help="Output in ascii mode.",
+        help="Output rich text.",
     )
 
     parser.add_argument(
