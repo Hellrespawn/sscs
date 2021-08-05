@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sscs"
-version = "0.4.1"
+version = "0.4.2"
 description = "Stef's Source Code Scraper"
 authors = ["Stef Korporaal <stefkorporaal@gmail.com>"]
 
@@ -10,8 +10,8 @@ url = "https://sleipnir.no-ip.net/pypi"
 secondary = true
 
 [tool.poetry.dependencies]
-python = "^3.9"
-rich = "^10.4.0"
+python = "^3.6.1"
+rich = "^10.6.0"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^3.8.4"

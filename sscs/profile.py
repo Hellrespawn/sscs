@@ -1,21 +1,30 @@
-from dataclasses import dataclass, field
 from os import PathLike
 from pathlib import Path
 from typing import List
 
 
-@dataclass
 class Profile:
-    name: str
+    def __init__(
+        self,
+        name: str,
+        indicator_files: List[PathLike],
+        *,
+        allowed_extensions: List[str] = None,
+        denied_extensions: List[str] = None,
+        allowed_files: List[str] = None,
+        denied_files: List[str] = None,
+        allowed_directories: List[str] = None,
+        denied_directories: List[str] = None,
+    ):
+        self.name = name
+        self.indicator_files = indicator_files
 
-    indicator_files: List[PathLike] = field(default_factory=list)
-
-    allowed_extensions: List[str] = field(default_factory=list)
-    denied_extensions: List[str] = field(default_factory=list)
-    allowed_files: List[str] = field(default_factory=list)
-    denied_files: List[str] = field(default_factory=list)
-    allowed_directories: List[str] = field(default_factory=list)
-    denied_directories: List[str] = field(default_factory=list)
+        self.allowed_extensions = allowed_extensions or []
+        self.denied_extensions = denied_extensions or []
+        self.allowed_files = allowed_files or []
+        self.denied_files = denied_files or []
+        self.allowed_directories = allowed_directories or []
+        self.denied_directories = denied_directories or []
 
     def _is_extension_allowed(self, path: Path) -> bool:
         if not path.is_file():
