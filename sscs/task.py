@@ -4,6 +4,30 @@ from datetime import datetime
 from functools import total_ordering
 from typing import Dict, List, Optional, Tuple
 
+from rich.highlighter import RegexHighlighter
+from rich.theme import Theme
+
+
+class TaskHighlighter(RegexHighlighter):
+    """Apply style to [Task]s."""
+
+    base_style = "task."
+    highlights = [
+        r"(?P<symbols>[(){}\[\]<>:@+-])",
+        r"\W(?P<numbers>\d+)",
+        r"(?P<quote>'.*?')",
+        r"(?P<quote>\".*?\")",
+        r"profile:(?P<profile>\w*)",
+    ]
+
+
+TaskTheme = Theme({
+    "task.symbols": "bold",
+    "task.numbers": "bold blue",
+    "task.quote": "#FF8700",
+    "task.profile": "bold cyan"
+})
+
 
 @total_ordering
 class Task:
@@ -119,7 +143,7 @@ class Task:
             for key, value in self.keywords.items():
                 msg = msg.replace(f"{key}:{value}", "").replace("  ", " ", 1)
 
-        parts.append(" ".join(msg.split()))
+        parts.append(msg)
 
         return " ".join(parts)
 
@@ -143,16 +167,17 @@ class Task:
 
     @classmethod
     def from_string(cls, string):
-        complete, msg = cls.get_match(r"(\S) (.*)", string)
+        complete, remainder = cls.get_match_and_remainder(
+            r"([xX]) (.*)", string
+        )
 
-        if complete and complete != "x":
-            raise ValueError(f'Unable to parse checkmark in "{string}"!')
-
-        priority, msg = cls.get_match(r"\((\S)\) (.*)", msg)
+        priority, remainder = cls.get_match_and_remainder(
+            r"\((\S)\) (.*)", remainder
+        )
 
         if complete:
             try:
-                date_completed, msg = cls.get_date(msg)
+                date_completed, remainder = cls.get_date(remainder)
             except ValueError:
                 raise ValueError(
                     f'Unable to parse completion date in "{string}"!'
@@ -162,14 +187,14 @@ class Task:
             date_completed = None
 
         try:
-            date_created, msg = cls.get_date(msg)
+            date_created, remainder = cls.get_date(remainder)
         except ValueError:
             raise ValueError(
                 f'Unable to parse completion date in "{string}"!'
             ) from None
 
         return cls(
-            msg,
+            remainder,
             complete=bool(complete),
             priority=priority,
             date_created=date_created,
@@ -177,7 +202,9 @@ class Task:
         )
 
     @staticmethod
-    def get_match(expr: str, string: str) -> Tuple[Optional[str], str]:
+    def get_match_and_remainder(
+        expr: str, string: str
+    ) -> Tuple[Optional[str], str]:
         match = re.match(expr, string)
         if match:
             return match.group(1), match.group(2)
@@ -188,12 +215,12 @@ class Task:
     def get_date(cls, string: str) -> Tuple[Optional[datetime], str]:
         expr = r"([0-9]{4})-([0-9]{2})-([0-9]{2}) (.*)"
 
-        date, string = cls.get_match(expr, string)
+        date, remainder = cls.get_match_and_remainder(expr, string)
 
         if date is not None:
-            return datetime.strptime(date, r"%Y-%m-%d"), string
+            return datetime.strptime(date, r"%Y-%m-%d"), remainder
 
-        return None, string
+        return None, remainder
 
     @staticmethod
     def get_tags(string: str, tag: str) -> List[str]:

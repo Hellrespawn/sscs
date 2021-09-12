@@ -7,6 +7,7 @@ class Profile:
     def __init__(
         self,
         name: str,
+        identifiers: List[str],
         indicator_files: List[PathLike],
         *,
         allowed_extensions: List[str] = None,
@@ -17,6 +18,7 @@ class Profile:
         denied_directories: List[str] = None,
     ):
         self.name = name
+        self.identifiers = identifiers
         self.indicator_files = indicator_files
 
         self.allowed_extensions = allowed_extensions or []
@@ -27,7 +29,11 @@ class Profile:
         self.denied_directories = denied_directories or []
 
     def __repr__(self) -> str:
-        return f"{type(self).__name__}(name={self.name}, indicator_files={self.indicator_files})"
+        return (
+            f"{type(self).__name__}(name={self.name}, "
+            + f"identifiers={self.identifiers}, "
+            + f"indicator_files={self.indicator_files})"
+        )
 
     def _is_extension_allowed(self, path: Path) -> bool:
         if not path.is_file():

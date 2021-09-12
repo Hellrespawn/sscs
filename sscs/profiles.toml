@@ -1,11 +1,16 @@
+# TODO Take default and overwrite with profile. Set option empty to overwrite.
+# TODO? Optionally have multiple identifiers per priority level?
+
 [default]
 name = "default"
+identifiers = ["TODO"] # sscs: skip
 denied_extensions = [ ".log",]
 denied_files = [ "todo.txt",]
 denied_directories = [ ".git",]
 
 [rust]
 name = "rust"
+identifiers = ["FIXME", "TODO", "TODO?", "UPSTREAM"] # sscs: skip
 indicator_files = [ "Cargo.toml", "Cargo.lock",]
 denied_extensions = [ ".log",]
 denied_files = [ "todo.txt",]
@@ -13,6 +18,7 @@ denied_directories = [ "target", ".git",]
 
 [python]
 name = "python"
+identifiers = ["FIXME", "TODO", "TODO?", "UPSTREAM"] # sscs: skip
 indicator_files = [ "pyproject.toml", "Pipfile", "setup.py",]
 denied_extensions = [ ".log",]
 denied_files = [ "todo.txt",]
