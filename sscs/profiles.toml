@@ -23,3 +23,11 @@ indicator_files = [ "pyproject.toml", "Pipfile", "setup.py",]
 denied_extensions = [ ".log",]
 denied_files = [ "todo.txt",]
 denied_directories = [ ".git", ".mypy_cache", ".venv",]
+
+[webdev]
+name = "webdev"
+identifiers = ["FIXME", "TODO", "TODO?", "UPSTREAM"] # sscs: skip
+indicator_files = [ "package.json", "tsconfig.json", ".eslintrc.json",]
+denied_extensions = [ ".log", ".js"]
+denied_files = [ "todo.txt",]
+denied_directories = [ ".git", ".mypy_cache", ".venv", "node_modules"]
