@@ -83,7 +83,7 @@
             "label": "black",
             "type": "shell",
             "problemMatcher": [],
-            "command": "poetry run python -m black -l 78 .",
+            "command": "poetry run python -m black .",
             "presentation": {
                 "reveal": "silent"
             }

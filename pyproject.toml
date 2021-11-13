@@ -27,6 +27,9 @@ mypy = "^0.790"
 [tool.poetry.scripts]
 sscs = "sscs.cli:main"
 
+[tool.black]
+line-length = 79
+
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
