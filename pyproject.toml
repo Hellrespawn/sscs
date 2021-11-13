@@ -4,6 +4,7 @@ version = "0.5.1"
 description = "Stef's Source Code Scraper"
 authors = ["Stef Korporaal <stefkorporaal@gmail.com>"]
 include = ["profiles.toml"]
+license = "MIT"
 
 [[tool.poetry.source]]
 name = "sleipnir"
