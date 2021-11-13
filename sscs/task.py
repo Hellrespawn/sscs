@@ -1,4 +1,3 @@
-# TODO? Check completed date after created date
 import re
 from datetime import datetime
 from functools import total_ordering
@@ -21,12 +20,14 @@ class TaskHighlighter(RegexHighlighter):
     ]
 
 
-TaskTheme = Theme({
-    "task.symbols": "bold",
-    "task.numbers": "bold blue",
-    "task.quote": "#FF8700",
-    "task.profile": "bold cyan"
-})
+TaskTheme = Theme(
+    {
+        "task.symbols": "bold",
+        "task.numbers": "bold blue",
+        "task.quote": "#FF8700",
+        "task.profile": "bold cyan",
+    }
+)
 
 
 @total_ordering

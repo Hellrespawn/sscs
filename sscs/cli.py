@@ -114,14 +114,12 @@ class FileParser:
         return tasklist
 
     def print_tasklist(self, tasklist: List[Task]) -> None:
-        date = (
-            str(datetime.now()).split(".", maxsplit=1)[0]
-        )
+        date = str(datetime.now()).split(".", maxsplit=1)[0]
 
         tasklist.append(
             Task(
                 (
-                    f"footer:true date:\"{date}\" "
+                    f'footer:true date:"{date}" '
                     + f"profile:{self.profile.name}"
                 )
             )
